@@ -1,23 +1,54 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
+import { ArrowRightBold, CloseBold } from '@element-plus/icons-vue'
+
+import { useAppStore } from '@/stores/app-store.ts'
+
+const { collapseSidePanel } = useAppStore()
+
+function closePanel() {
+    collapseSidePanel();
+    // todo: reset selection/creation
+}
 </script>
 
 <template>
-    <div class="side-panel">
-        <el-card>
-        </el-card>
-    </div>
+    <el-card class="side-panel">
+
+        <template #header>
+            <div class="side-panel-header">
+
+                <div class="side-panel-header-title">
+                </div>
+
+                <div class="side-panel-header-actions">
+                    <el-button
+                        :icon="ArrowRightBold" circle
+                        @click="collapseSidePanel()"
+                    />
+                    <el-button
+                        :icon="CloseBold" circle
+                        @click="closePanel()"
+                    />
+                </div>
+            </div>
+        </template>
+
+        <slot />
+
+    </el-card>
 </template>
 
 <style scoped lang="scss">
 
 .side-panel {
-    padding: 16px 16px 16px 0;
-    box-sizing: border-box;
+    &-header {
+        display: flex;
+        justify-content: space-between;
 
-    & > .el-card {
-        height: 100%;
-        width: 100%;
+        &-actions {
+
+        }
     }
 }
-
 </style>

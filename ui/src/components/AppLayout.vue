@@ -1,11 +1,25 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
+
+import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/styles'
+
 import AppHeader from '@/components/AppHeader.vue'
 import MapView from '@/components/MapView.vue'
-import SidePanel from '@/components/SidePanel.vue'
+import SidePanelContainer from '@/components/SidePanelContainer.vue'
+
+import { useAppStore } from '@/stores/app-store.ts'
+
+const { isSidePanelExpanded } = storeToRefs(useAppStore())
+
+const styleVariables = computed(() => ({
+    '--side-panel-width': `${SIDE_PANEL_DESKTOP_WIDTH}px`,
+    '--side-panel-transition-ms': `${SIDE_PANEL_TRANSITION_MS}ms`
+}))
 </script>
 
 <template>
-    <div class="app-layout">
+    <div class="app-layout" :style="styleVariables">
         <el-container>
     
           <el-header>
@@ -15,7 +29,9 @@ import SidePanel from '@/components/SidePanel.vue'
           <el-main>
             <MapView />
     
-            <SidePanel />
+            <SidePanelContainer
+                :class="{ expanded: isSidePanelExpanded }"
+            />
           </el-main>
 
         </el-container>
@@ -43,15 +59,17 @@ import SidePanel from '@/components/SidePanel.vue'
             width: 100%;
         }
 
-        .side-panel {
-            width: 384px;
+        .side-panel-container {
+            width: var(--side-panel-width);
             height: 100%;
             position: absolute;
             top: 0;
-            right: 0;
+            right: calc(-1 * var(--side-panel-width));
 
-            &.hidden {
-                transform: translateX(100%);
+            transition: transform var(--side-panel-transition-ms) ease;
+
+            &.expanded {
+                transform: translateX(-100%);
             }
         }
     }

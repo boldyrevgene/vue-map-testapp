@@ -1,0 +1,2 @@
+export const SIDE_PANEL_DESKTOP_WIDTH = 384
+export const SIDE_PANEL_TRANSITION_MS = 500
