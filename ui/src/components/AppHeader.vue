@@ -2,7 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { ArrowLeftBold, AddLocation } from '@element-plus/icons-vue'
 
-import { useAppStore } from '@/stores/app-store.ts'
+import { useAppStore } from '@/stores/app-store'
 
 const { isSidePanelExpaтdable } = storeToRefs(useAppStore())
 const { expandSidePanel } = useAppStore()

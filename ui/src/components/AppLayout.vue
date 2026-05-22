@@ -8,7 +8,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import MapView from '@/components/MapView.vue'
 import SidePanelContainer from '@/components/SidePanelContainer.vue'
 
-import { useAppStore } from '@/stores/app-store.ts'
+import { useAppStore } from '@/stores/app-store'
 
 const { isSidePanelExpanded } = storeToRefs(useAppStore())
 

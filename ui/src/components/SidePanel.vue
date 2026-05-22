@@ -2,7 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { ArrowRightBold, CloseBold } from '@element-plus/icons-vue'
 
-import { useAppStore } from '@/stores/app-store.ts'
+import { useAppStore } from '@/stores/app-store'
 
 const { collapseSidePanel } = useAppStore()
 
