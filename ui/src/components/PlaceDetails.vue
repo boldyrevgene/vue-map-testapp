@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useAppStore, usePlacesStore } from '@/stores';
 import { storeToRefs } from 'pinia';
 
@@ -8,7 +9,8 @@ const { collapseSidePanel } = useAppStore()
 const { resetSelection } = usePlacesStore()
 const { selectedPlace } = storeToRefs(usePlacesStore())
 
-console.log(selectedPlace.value)
+watch(selectedPlace, console.log)
+
 </script>
 
 <template>

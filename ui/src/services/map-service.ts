@@ -6,7 +6,7 @@ import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/
 import { PlaceType, type Place } from '@/models'
 import { mapIconService } from './map-icon-service'
 
-type MarkerClickCallback = (id: string, type: 'user' | 'place') => void | null
+type MarkerClickCallback = (id: string, type: 'user' | 'place') => void
 
 export class MapService {
 
@@ -240,6 +240,16 @@ export class MapService {
 
         this.map.on('mouseleave', layerId, () => {
             this.map.getCanvas().style.cursor = ''
+        })
+
+        this.map.on('click', layerId, (event) => {
+            const feature = event.features?.[0]
+            if (!feature || !this.markerClickCallback) {
+                return
+            }
+
+            const id = feature.properties?.id as string
+            this.markerClickCallback(id, 'place')
         })
     }
 }

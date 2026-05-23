@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref, toRaw, watch } from 'vue'
 import { defineStore } from 'pinia'
 
 import type { Place, SelectedPlace } from '@/models'
@@ -50,7 +50,7 @@ export const usePlacesStore = defineStore('places', () => {
         }
 
         selectedPlace.value = places.value[indexById[id]]
-            ? {place: places.value[indexById[id]] as Place, state: 'view'}
+            ? {place: toRaw(places.value[indexById[id]]) as Place, state: 'view'}
             : null
     }
 
