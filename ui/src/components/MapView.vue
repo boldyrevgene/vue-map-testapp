@@ -14,7 +14,7 @@ import * as mapConstants from '@/constants/map'
 
 const containerRef = useTemplateRef<HTMLDivElement>('mapContainer')
 
-const { placesGroupedByType } = storeToRefs(useMapStore())
+const { placesGroupedByType, activePlaceTypes } = storeToRefs(useMapStore())
 const { fetchPlaces } = usePlacesStore()
 
 let map: maplibregl.Map | null = null
@@ -45,8 +45,12 @@ onMounted(() => {
     for (let placeType of Object.values(PlaceType)) {
         watch(() => placesGroupedByType.value[placeType], (places: Place[]) => {
             mapService.renderTypePlaces(placeType, places)
+            // re-apply filter so a newly-created layer respects current state
+            mapService.filterPlaces(activePlaceTypes.value)
         })
     }
+
+    watch(activePlaceTypes, (types) => mapService.filterPlaces(types))
 })
 
 onUnmounted(() => {

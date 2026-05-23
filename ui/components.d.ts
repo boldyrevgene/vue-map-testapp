@@ -18,6 +18,8 @@ declare module 'vue' {
     ElContainer: typeof import('element-plus/es')['ElContainer']
     ElHeader: typeof import('element-plus/es')['ElHeader']
     ElMain: typeof import('element-plus/es')['ElMain']
+    ElOption: typeof import('element-plus/es')['ElOption']
+    ElSelect: typeof import('element-plus/es')['ElSelect']
     MapView: typeof import('./src/components/MapView.vue')['default']
     SidePanel: typeof import('./src/components/SidePanel.vue')['default']
     SidePanelContainer: typeof import('./src/components/SidePanelContainer.vue')['default']

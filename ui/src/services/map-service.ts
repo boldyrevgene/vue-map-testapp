@@ -79,12 +79,32 @@ export class MapService {
 
 
     /**
-     * Shows/hides layers with places on the map
-     * 
-     * @param activePlaceTypes list of types which should be displayed
+     * Shows/hides layers with places on the map.
+     * Empty set means default state — all types are shown.
+     *
+     * @param activePlaceTypes set of types which should be displayed
      */
     filterPlaces(activePlaceTypes: Set<PlaceType>): void {
-        // todo: show/hide layers with places
+        if (!this.map.isStyleLoaded()) {
+            this.map.once('load', () => this.filterPlaces(activePlaceTypes))
+            return
+        }
+
+        const showAll = activePlaceTypes.size === 0
+
+        for (let placeType of Object.values(PlaceType)) {
+            const layerId = `places-${placeType}`
+            if (!this.map.getLayer(layerId)) {
+                continue
+            }
+
+            const isVisible = showAll || activePlaceTypes.has(placeType)
+            this.map.setLayoutProperty(
+                layerId,
+                'visibility',
+                isVisible ? 'visible' : 'none',
+            )
+        }
     }
 
     /**
