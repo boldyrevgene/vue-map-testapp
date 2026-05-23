@@ -163,6 +163,10 @@ export class MapService {
         this.selectedUserId = ''
     }
 
+    resetUserSelection(): void {
+        this.unselectUser(this.selectedUserId)
+    }
+
     /**
      * Changes place marker to the 'selected' state
      * 
@@ -194,6 +198,10 @@ export class MapService {
 
         this.selectedPlaceId = ''
         this.selectedPlaceType = null
+    }
+
+    resetPlaceSelection(): void {
+        this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
     }
 
     unselectAll() {

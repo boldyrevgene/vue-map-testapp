@@ -73,6 +73,8 @@ onMounted(() => {
     watch(selectedUser, (user) => {
         if (user) {
             mapService.selectUser(user.id)
+        } else {
+            mapService.resetPlaceSelection()
         }
     })
 
@@ -81,6 +83,8 @@ onMounted(() => {
     watch(selectedPlace, (place) => {
         if (place) {
             mapService.selectPlace(place.place.id, place.place.type)
+        } else {
+            mapService.resetPlaceSelection()
         }
     })
 })

@@ -11,7 +11,7 @@ export const useAppStore = defineStore('appStore', () => {
     // active only if user/place is selected on map or if form of place creation are rendered
     const { selectedUser } = storeToRefs(useUsersStore())
     const { selectedPlace } = storeToRefs(usePlacesStore())
-    const isSidePanelActive = computed(() => selectedUser.value || selectedPlace.value || true)
+    const isSidePanelActive = computed(() => selectedUser.value || selectedPlace.value)
 
     // only a single selection at the same time
     const { resetSelection: resetPlaceSelection } = usePlacesStore()
