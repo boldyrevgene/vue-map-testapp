@@ -74,7 +74,7 @@ export class MapService {
             },
         })
 
-        // todo: bind events
+        this.bindEnventsOnPlaces(sourceId)
     }
 
 
@@ -159,5 +159,15 @@ export class MapService {
                 }
             }),
         }
+    }
+
+    private bindEnventsOnPlaces(layerId: string) {
+        this.map.on('mouseenter', layerId, () => {
+            this.map.getCanvas().style.cursor = 'pointer'
+        })
+
+        this.map.on('mouseleave', layerId, () => {
+            this.map.getCanvas().style.cursor = ''
+        })
     }
 }
