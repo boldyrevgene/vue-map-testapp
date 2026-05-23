@@ -7,7 +7,7 @@ import { useAppStore, usePlacesStore } from '@/stores'
 import PlaceForm from '@/components/PlaceForm.vue'
 import { mapIconService } from '@/services/map-icon-service'
 
-const { collapseSidePanel } = useAppStore()
+const { collapseSidePanel, expandSidePanel } = useAppStore()
 const { resetSelection } = usePlacesStore()
 const { selectedPlace } = storeToRefs(usePlacesStore())
 
@@ -24,7 +24,6 @@ watch(selectedPlace, async (selected) => {
 }, { immediate: true })
 
 onMounted(() => {
-    const { expandSidePanel } = useAppStore()
     expandSidePanel()
 })
 </script>
@@ -33,7 +32,10 @@ onMounted(() => {
     <div class="place-details">
         <SidePanel @collapsed="collapseSidePanel()" @closed="resetSelection()">
 
-            <div v-if="selectedPlace?.state === 'view'" class="place-details-content">
+            <div v-if="selectedPlace?.state === 'edit'" class="form">
+                <PlaceForm />
+            </div>
+            <div v-else v-if="selectedPlace?.place" class="place-details-content">
 
                 <div class="details__header">
                     <img :src="iconSrc" class="details__icon" alt="{}" />
@@ -64,10 +66,6 @@ onMounted(() => {
 
             </div>
 
-            <div v-else class="form">
-                <PlaceForm />
-            </div>
-
         </SidePanel>
     </div>
 </template>
@@ -81,71 +79,6 @@ onMounted(() => {
         width: 100%;
     }
 
-    &-content {
-        .details {
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-
-            &__header {
-                margin-bottom: 12px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-
-            &__icon {
-                height: 48px;
-                width: auto;
-                flex-shrink: 0;
-            }
-
-            &__name {
-                font-size: 22px;
-                font-weight: 600;
-                color: var(--el-text-color-primary);
-            }
-
-            &__row {
-                margin-bottom: 8px;
-                display: flex;
-                gap: 6px;
-                align-items: baseline;
-            }
-
-            &__label {
-                font-size: 14px;
-                color: var(--el-text-color-secondary);
-            }
-
-            &__value {
-                font-size: 16px;
-                color: var(--el-text-color-primary);
-            }
-
-            &__coords {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            }
-
-            &__coords-divider {
-                width: 1px;
-                height: 14px;
-                background: #dcdfe6;
-            }
-
-            &__description {
-                display: flex;
-                flex-direction: column;
-                gap: 2px;
-
-                p {
-                    margin: 0;
-                }
-            }
-        }
-    }
+    &-content {}
 }
 </style>

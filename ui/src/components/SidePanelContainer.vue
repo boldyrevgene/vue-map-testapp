@@ -12,9 +12,8 @@ const { selectedPlace } = storeToRefs(usePlacesStore())
 
 <template>
     <div class="side-panel-container">
-        <!-- todo: replace condition by selected state -->
-        <PlaceDetails v-if="true"></PlaceDetails>
-        <UserDetails v-else></UserDetails>
+        <PlaceDetails v-if="selectedPlace"></PlaceDetails>
+        <UserDetails v-if="selectedUser"></UserDetails>
     </div>
 </template>
 
@@ -30,4 +29,9 @@ const { selectedPlace } = storeToRefs(usePlacesStore())
     }
 }
 
+</style>
+
+// common styles for both childrens (PlaceDetails, UserDetails)
+<style lang="scss">
+@use '@/styles/map-entity-details';
 </style>

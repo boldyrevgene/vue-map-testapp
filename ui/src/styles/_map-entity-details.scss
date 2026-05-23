@@ -1,0 +1,64 @@
+.side-panel-container .details {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    &__header {
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    &__icon {
+        height: 48px;
+        width: auto;
+        flex-shrink: 0;
+    }
+
+    &__name {
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--el-text-color-primary);
+    }
+
+    &__row {
+        margin-bottom: 8px;
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+    }
+
+    &__label {
+        font-size: 14px;
+        color: var(--el-text-color-secondary);
+    }
+
+    &__value {
+        font-size: 16px;
+        color: var(--el-text-color-primary);
+    }
+
+    &__coords {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    &__coords-divider {
+        width: 1px;
+        height: 14px;
+        background: #dcdfe6;
+    }
+
+    &__description {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        p {
+            margin: 0;
+        }
+    }
+}
