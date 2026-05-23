@@ -18,7 +18,7 @@ export class MapService {
     private selectedPlaceId: string = ''
     private selectedPlaceType: PlaceType | null = null
 
-    private markerClickCallback: MarkerClickCallback = null;
+    private markerClickCallback: MarkerClickCallback | null = null;
 
     constructor(private map: maplibregl.Map) {
         this.areImagesLoaded = this.addCustomMarkers()
@@ -69,6 +69,7 @@ export class MapService {
 
         this.map.addSource(sourceId, { type: 'geojson', data: sourceData })
 
+        // default layer
         this.map.addLayer({
             id: sourceId,
             type: 'symbol',
@@ -81,7 +82,23 @@ export class MapService {
             },
         })
 
+        // selected markers layer (hidden by default)
+        const selectedLayerId = `${sourceId}__selected`
+        this.map.addLayer({
+            id: selectedLayerId,
+            type: 'symbol',
+            source: sourceId,
+            filter: ['==', ['get', 'id'], ''],
+            layout: {
+                'icon-image': mapIconService.getMarkerId(placeType, 'selected'),
+                'icon-size': 1,
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+            },
+        })
+
         this.bindEnventsOnPlaces(sourceId)
+        this.bindEnventsOnPlaces(selectedLayerId)
     }
 
 
@@ -106,11 +123,13 @@ export class MapService {
             }
 
             const isVisible = showAll || activePlaceTypes.has(placeType)
-            this.map.setLayoutProperty(
-                layerId,
-                'visibility',
-                isVisible ? 'visible' : 'none',
-            )
+            const visibility = isVisible ? 'visible' : 'none'
+            this.map.setLayoutProperty(layerId, 'visibility', visibility)
+
+            const selectedLayerId = `${layerId}__selected`
+            if (this.map.getLayer(selectedLayerId)) {
+                this.map.setLayoutProperty(selectedLayerId, 'visibility', visibility)
+            }
         }
     }
 
@@ -157,7 +176,8 @@ export class MapService {
 
         this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
 
-        // todo: make new selection
+        this.map.setFilter(`places-${type}`, ['!=', ['get', 'id'], id])
+        this.map.setFilter(`places-${type}__selected`, ['==', ['get', 'id'], id])
 
         // update selection state
         this.selectedPlaceId = id
@@ -169,6 +189,8 @@ export class MapService {
             return
         }
 
+        this.map.setFilter(`places-${type}`, null)
+        this.map.setFilter(`places-${type}__selected`, ['==', ['get', 'id'], ''])
 
         this.selectedPlaceId = ''
         this.selectedPlaceType = null
@@ -249,7 +271,9 @@ export class MapService {
             }
 
             const id = feature.properties?.id as string
-            this.markerClickCallback(id, 'place')
+            if (id !== this.selectedPlaceId) {
+                this.markerClickCallback(id, 'place')
+            }
         })
     }
 }
