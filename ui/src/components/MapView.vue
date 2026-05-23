@@ -18,8 +18,18 @@ import * as mapConstants from '@/constants/map'
 
 const containerRef = useTemplateRef<HTMLDivElement>('mapContainer')
 
-const { placesGroupedByType, activePlaceTypes } = storeToRefs(useMapStore())
-const { fetchPlaces } = usePlacesStore()
+const appStore = useAppStore()
+const mapStore = useMapStore()
+const placesStore = usePlacesStore()
+const usersStore = useUsersStore()
+
+const { isSidePanelExpanded } = storeToRefs(appStore)
+const { placesGroupedByType, activePlaceTypes } = storeToRefs(mapStore)
+const { selectedPlace } = storeToRefs(placesStore)
+const { users, selectedUser } = storeToRefs(usersStore)
+
+const { fetchPlaces, selectPlace } = placesStore
+const { fetchUsers, selectUser } = usersStore
 
 let map: maplibregl.Map | null = null
 onMounted(() => {
@@ -29,7 +39,18 @@ onMounted(() => {
 
     map = new maplibregl.Map({
         container: containerRef.value,
-        style: 'https://tiles.openfreemap.org/styles/bright',
+        style: {
+            version: 8,
+            sources: {
+                osm: {
+                    type: 'raster',
+                    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                    tileSize: 256,
+                    attribution: '© OpenStreetMap contributors',
+                },
+            },
+            layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+        },
         center: mapConstants.MAP_INIT_CENTER,
         zoom: mapConstants.MAP_INIT_ZOOM,
         attributionControl: false,
@@ -40,10 +61,9 @@ onMounted(() => {
 
     const mapService = new MapService(map)
     fetchPlaces()
+    fetchUsers()
 
-    const { isSidePanelExpanded } = storeToRefs(useAppStore())
-
-    watch(isSidePanelExpanded, (isExpanded) => mapService.shiftMapCenter(isExpanded))
+    watch(isSidePanelExpanded, (isExpanded) => mapService.shiftMapCenter(isExpanded || false))
 
     // watch each place type separately for single type update only, when possible
     for (let placeType of Object.values(PlaceType)) {
@@ -56,8 +76,8 @@ onMounted(() => {
 
     watch(activePlaceTypes, (types) => mapService.filterPlaces(types))
 
-    const { selectUser } = useUsersStore()
-    const { selectPlace } = usePlacesStore()
+    watch(users, (newUsers) => mapService.renderUsers(newUsers))
+
     mapService.onMarkerClick((id, type) => {
         if (type === 'user') {
             selectUser(id)
@@ -69,17 +89,15 @@ onMounted(() => {
     })
 
     // highlight selected user on the map
-    const { selectedUser } = storeToRefs(useUsersStore())
     watch(selectedUser, (user) => {
         if (user) {
             mapService.selectUser(user.id)
         } else {
-            mapService.resetPlaceSelection()
+            mapService.resetUserSelection()
         }
     })
 
     // highlight selected place on the map
-    const { selectedPlace } = storeToRefs(usePlacesStore())
     watch(selectedPlace, (place) => {
         if (place) {
             mapService.selectPlace(place.place.id, place.place.type)

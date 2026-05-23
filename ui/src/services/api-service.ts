@@ -1,5 +1,5 @@
 import { type AppConfig, config } from '@/config'
-import type { Place } from '@/models'
+import type { Place, User } from '@/models'
 
 export class ApiService {
 
@@ -13,6 +13,17 @@ export class ApiService {
     async fetchPlaces(): Promise<Place[]> {
         return this.handleResponse<Place[]>(
             await fetch(`${this.config.apiBase}/places`)
+        )
+    }
+
+    /**
+     * Fetches the full list of users from the server
+     *
+     * @returns list of users
+     */
+    async fetchUsers(): Promise<User[]> {
+        return this.handleResponse<User[]>(
+            await fetch(`${this.config.apiBase}/users`)
         )
     }
 

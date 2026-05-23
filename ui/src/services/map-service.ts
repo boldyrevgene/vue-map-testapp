@@ -3,7 +3,8 @@ import type { FeatureCollection, Point } from 'geojson'
 
 import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/styles'
 
-import { PlaceType, type Place } from '@/models'
+import { PlaceType, type MapEntity, type Place, type User } from '@/models'
+import type { MarkerType } from '@/types'
 import { mapIconService } from './map-icon-service'
 
 type MarkerClickCallback = (id: string, type: 'user' | 'place') => void
@@ -18,7 +19,7 @@ export class MapService {
     private selectedPlaceId: string = ''
     private selectedPlaceType: PlaceType | null = null
 
-    private markerClickCallback: MarkerClickCallback | null = null;
+    private markerClickCallback: MarkerClickCallback | null = null
 
     constructor(private map: maplibregl.Map) {
         this.areImagesLoaded = this.addCustomMarkers()
@@ -27,29 +28,21 @@ export class MapService {
     /**
      * Adjusts the map's right padding
      * so the visible center accounts for the side panel
-     * 
+     *
      * @param isSidePanelExpanded side panel state
      */
     shiftMapCenter(isSidePanelExpanded: boolean): void {
-        if (isSidePanelExpanded) {
-            this.map.easeTo({
-                padding: { right: SIDE_PANEL_DESKTOP_WIDTH },
-                duration: SIDE_PANEL_TRANSITION_MS,
-            })
-        } else {
-            this.map.easeTo({
-                padding: { right: 0 },
-                duration: SIDE_PANEL_TRANSITION_MS,
-            })
-        }
+        this.map.easeTo({
+            padding: { right: isSidePanelExpanded ? SIDE_PANEL_DESKTOP_WIDTH : 0 },
+            duration: SIDE_PANEL_TRANSITION_MS,
+        })
     }
 
     /**
      * Renders places by particular place type
-     * 
+     *
      * @param placeType type of place
      * @param places list of places with the same type
-     * @returns 
      */
     async renderTypePlaces(placeType: PlaceType, places: Place[]) {
         if (!this.map.isStyleLoaded()) {
@@ -57,50 +50,22 @@ export class MapService {
             return
         }
         await this.areImagesLoaded
-
-        const sourceId = `places-${placeType}`
-        const sourceData = this.getPlacesGeoJSON(places)
-
-        const source = this.map.getSource(sourceId)
-        if (source) {
-            (source as maplibregl.GeoJSONSource).setData(sourceData)
-            return
-        }
-
-        this.map.addSource(sourceId, { type: 'geojson', data: sourceData })
-
-        // default layer
-        this.map.addLayer({
-            id: sourceId,
-            type: 'symbol',
-            source: sourceId,
-            layout: {
-                'icon-image': mapIconService.getMarkerId(placeType, 'default'),
-                'icon-size': 1,
-                'icon-anchor': 'bottom',
-                'icon-allow-overlap': true,
-            },
-        })
-
-        // selected markers layer (hidden by default)
-        const selectedLayerId = `${sourceId}__selected`
-        this.map.addLayer({
-            id: selectedLayerId,
-            type: 'symbol',
-            source: sourceId,
-            filter: ['==', ['get', 'id'], ''],
-            layout: {
-                'icon-image': mapIconService.getMarkerId(placeType, 'selected'),
-                'icon-size': 1,
-                'icon-anchor': 'bottom',
-                'icon-allow-overlap': true,
-            },
-        })
-
-        this.bindEnventsOnPlaces(sourceId)
-        this.bindEnventsOnPlaces(selectedLayerId)
+        this.renderSource(`places-${placeType}`, placeType, places)
     }
 
+    /**
+     * Renders all users as markers on the map
+     *
+     * @param users list of users
+     */
+    async renderUsers(users: User[]) {
+        if (!this.map.isStyleLoaded()) {
+            this.map.once('load', () => this.renderUsers(users))
+            return
+        }
+        await this.areImagesLoaded
+        this.renderSource('users', 'user', users)
+    }
 
     /**
      * Shows/hides layers with places on the map.
@@ -116,14 +81,13 @@ export class MapService {
 
         const showAll = activePlaceTypes.size === 0
 
-        for (let placeType of Object.values(PlaceType)) {
+        for (const placeType of Object.values(PlaceType)) {
             const layerId = `places-${placeType}`
             if (!this.map.getLayer(layerId)) {
                 continue
             }
 
-            const isVisible = showAll || activePlaceTypes.has(placeType)
-            const visibility = isVisible ? 'visible' : 'none'
+            const visibility = (showAll || activePlaceTypes.has(placeType)) ? 'visible' : 'none'
             this.map.setLayoutProperty(layerId, 'visibility', visibility)
 
             const selectedLayerId = `${layerId}__selected`
@@ -133,13 +97,19 @@ export class MapService {
         }
     }
 
+    /**
+     * Registers calback for marker click event.
+     * Allows to get info about clicked maker on the map
+     * 
+     * @param callback calls on map.on('click')
+     */
     onMarkerClick(callback: MarkerClickCallback) {
         this.markerClickCallback = callback
     }
 
     /**
      * Changes user marker to the 'selected' state
-     * 
+     *
      * @param id user id
      */
     selectUser(id: string): void {
@@ -148,18 +118,16 @@ export class MapService {
         }
 
         this.unselectUser(this.selectedUserId)
-
-        // todo: make new selection
-
-        // update selection state
+        this.selectMarker('users', id)
         this.selectedUserId = id
     }
 
     unselectUser(id: string): void {
-        if (!id) {
+        if (id !== this.selectedUserId) {
             return
         }
 
+        this.unselectMarker('users')
         this.selectedUserId = ''
     }
 
@@ -169,33 +137,27 @@ export class MapService {
 
     /**
      * Changes place marker to the 'selected' state
-     * 
+     *
      * @param id place id
      * @param type place type
      */
     selectPlace(id: string, type: PlaceType): void {
-        if (id === this.selectedPlaceId && type === this.selectedPlaceType) {
+        if (id === this.selectedPlaceId || type === this.selectedPlaceType) {
             return
         }
 
         this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
-
-        this.map.setFilter(`places-${type}`, ['!=', ['get', 'id'], id])
-        this.map.setFilter(`places-${type}__selected`, ['==', ['get', 'id'], id])
-
-        // update selection state
+        this.selectMarker(`places-${type}`, id)
         this.selectedPlaceId = id
         this.selectedPlaceType = type
     }
 
     unselectPlace(id: string, type: PlaceType | null): void {
-        if (!id || !type) {
+        if (!id || !type || id !== this.selectedPlaceId || type !== this.selectedPlaceType) {
             return
         }
 
-        this.map.setFilter(`places-${type}`, null)
-        this.map.setFilter(`places-${type}__selected`, ['==', ['get', 'id'], ''])
-
+        this.unselectMarker(`places-${type}`)
         this.selectedPlaceId = ''
         this.selectedPlaceType = null
     }
@@ -204,66 +166,130 @@ export class MapService {
         this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
     }
 
-    unselectAll() {
-        this.unselectUser(this.selectedUserId)
-        this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
+    resetSelection(): void {
+        this.resetUserSelection()
+        this.resetPlaceSelection()
     }
 
     /**
      * Loads custom icons to the map instance.
-     * Icons are rasterized at MARKER_HEIGHT * devicePixelRatio so they stay crisp
-     * on high-DPI displays; pixelRatio passed to addImage tells maplibre
-     * the intended CSS size.
+     * For each user and place type own icon with several states ('default' | 'selected' | 'closest')
+     * Icons are rasterized at MARKER_HEIGHT * devicePixelRatio for hier quality render;
+     * pixelRatio passed to addImage tells maplibre the intended CSS size.
      */
     private async addCustomMarkers() {
         const dpr = window.devicePixelRatio || 1
         const rasterHeight = MapService.MARKER_HEIGHT * dpr
 
-        // places markers
         const placeStates = ['default', 'selected'] as const
-        for (let placeType of Object.values(PlaceType)) {
-            for (let markerState of placeStates) {
-                const placeImage = await mapIconService.getMarkerImage(placeType, markerState, rasterHeight)
-                this.map.addImage(
-                    mapIconService.getMarkerId(placeType, markerState),
-                    placeImage,
-                    { pixelRatio: dpr },
-                )
+        for (const placeType of Object.values(PlaceType)) {
+            for (const state of placeStates) {
+                const image = await mapIconService.getMarkerImage(placeType, state, rasterHeight)
+                this.map.addImage(mapIconService.getMarkerId(placeType, state), image, { pixelRatio: dpr })
             }
         }
 
-        // user marker with states
         const userStates = [...placeStates, 'closest'] as const
-        for (let markerState of userStates) {
-            const userImage = await mapIconService.getMarkerImage('user', markerState, rasterHeight)
-            this.map.addImage(
-                mapIconService.getMarkerId('user', markerState),
-                userImage,
-                { pixelRatio: dpr },
-            )
+        for (const state of userStates) {
+            const image = await mapIconService.getMarkerImage('user', state, rasterHeight)
+            this.map.addImage(mapIconService.getMarkerId('user', state), image, { pixelRatio: dpr })
         }
     }
 
-    private getPlacesGeoJSON(places: Place[]): FeatureCollection<Point> {
+    /**
+     * Sets the marker on the map to 'selected' state
+     * 
+     * @param featureId id of User or Place
+     */
+    private selectMarker(sourceId: string, featureId: string): void {
+        this.map.setFilter(sourceId, ['!=', ['get', 'id'], featureId])
+        this.map.setFilter(`${sourceId}__selected`, ['==', ['get', 'id'], featureId])
+    }
+
+    /**
+     * Resets marker state from 'selected' to 'default
+     * 
+     */
+    private unselectMarker(sourceId: string): void {
+        this.map.setFilter(sourceId, null)
+        this.map.setFilter(`${sourceId}__selected`, ['==', ['get', 'id'], ''])
+    }
+
+    /**
+     * Creates map source or updates it if it's already exist
+     * 
+     * @param iconType specific for data type icon
+     * @param entities list of users or places
+     */
+    private renderSource(sourceId: string, iconType: MarkerType, entities: MapEntity[]): void {
+        const data = this.toGeoJSON(entities)
+
+        const source = this.map.getSource(sourceId)
+        if (source) {
+            (source as maplibregl.GeoJSONSource).setData(data)
+            return
+        }
+
+        const callbackType: 'user' | 'place' = iconType === 'user' ? 'user' : 'place'
+
+        this.map.addSource(sourceId, { type: 'geojson', data })
+
+        this.addSymbolLayer(sourceId, sourceId, mapIconService.getMarkerId(iconType, 'default'))
+        this.bindLayerEvents(sourceId, callbackType)
+
+        const selectedLayerId = `${sourceId}__selected`
+        this.addSymbolLayer(selectedLayerId, sourceId, mapIconService.getMarkerId(iconType, 'selected'), ['==', ['get', 'id'], ''])
+    }
+
+    /**
+     * Converts list of users or places to geoJSON
+     * 
+     * @param entities User[] | Place[]
+     * @returns geoJSON to set in a source
+     */
+    private toGeoJSON(entities: MapEntity[]): FeatureCollection<Point> {
         return {
             type: 'FeatureCollection',
-            features: places.map(place => {
-
-                const { id, name, coordinates } = place
-
-                return {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Point',
-                        coordinates
-                    },
-                    properties: {id, name},
-                }
-            }),
+            features: entities.map(({ id, name, coordinates }) => ({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates },
+                properties: { id, name },
+            })),
         }
     }
 
-    private bindEnventsOnPlaces(layerId: string) {
+    /**
+     * Adds markers to the map source
+     * 
+     * @param iconId specific to data type and it's state icon
+     * @param filter used for filtering by marker state ('default' | 'selected' | 'closest')
+     */
+    private addSymbolLayer(
+        layerId: string,
+        sourceId: string,
+        iconId: string,
+        filter?: maplibregl.FilterSpecification,
+    ): void {
+        const layer: maplibregl.LayerSpecification = {
+            id: layerId,
+            type: 'symbol',
+            source: sourceId,
+            layout: {
+                'icon-image': iconId,
+                'icon-size': 1,
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+            },
+        }
+
+        if (filter) {
+            layer.filter = filter
+        }
+
+        this.map.addLayer(layer)
+    }
+
+    private bindLayerEvents(layerId: string, type: 'user' | 'place'): void {
         this.map.on('mouseenter', layerId, () => {
             this.map.getCanvas().style.cursor = 'pointer'
         })
@@ -279,9 +305,7 @@ export class MapService {
             }
 
             const id = feature.properties?.id as string
-            if (id !== this.selectedPlaceId) {
-                this.markerClickCallback(id, 'place')
-            }
+            this.markerClickCallback(id, type)
         })
     }
 }

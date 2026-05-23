@@ -1,17 +1,16 @@
-import { ref, toRaw, watch } from 'vue'
+import { computed, ref, toRaw } from 'vue'
 import { defineStore } from 'pinia'
 
 import type { Place, SelectedPlace } from '@/models'
 import { apiService, ApiError } from '@/services'
 
 // hash map with place.id - array index as key-value pair
-type PlacesIdIndex = {[key: string]: number}
+type PlacesIdIndex = Map<string, number>
 
 function makePlacesIndex(places: Place[]): PlacesIdIndex {
-    return places.reduce((index, place, position) => {
-        index[place.id] = position
-        return index
-    }, {} as PlacesIdIndex)
+    return new Map(
+        places.map((place, index) => [place.id, index])
+    )
 }
 
 export const usePlacesStore = defineStore('places', () => {
@@ -20,10 +19,7 @@ export const usePlacesStore = defineStore('places', () => {
     const isLoading = ref<boolean>(false)
     const error = ref<ApiError | null>(null)
 
-    let indexById: PlacesIdIndex = {}
-    watch(places, (newPlaces: Place[]) => {
-        indexById = makePlacesIndex(newPlaces)
-    })
+    const indexById = computed<PlacesIdIndex>(() => makePlacesIndex(places.value))
 
     async function fetchPlaces() {
         isLoading.value = true
@@ -45,12 +41,12 @@ export const usePlacesStore = defineStore('places', () => {
 
     const selectedPlace = ref<SelectedPlace | null>(null)
     function selectPlace(id: string) {
-        if (!indexById[id] && indexById[id] !== 0) {
+        if ('number' !== typeof indexById.value.get(id)) {
             return
         }
 
-        selectedPlace.value = places.value[indexById[id]]
-            ? {place: toRaw(places.value[indexById[id]]) as Place, state: 'view'}
+        selectedPlace.value = places.value[indexById.value.get(id) as number]
+            ? {place: toRaw(places.value[indexById.value.get(id) as number]) as Place, state: 'view'}
             : null
     }
 
@@ -90,7 +86,7 @@ export const usePlacesStore = defineStore('places', () => {
         // todo: call API method
 
         // on success removing
-        const index = indexById[id];
+        const index = indexById.value.get(id);
         if (!index && index !== 0) {
             return
         }
@@ -99,7 +95,12 @@ export const usePlacesStore = defineStore('places', () => {
         if (selectedPlace.value?.place.id === id) {
             resetSelection()
         }
-        indexById = makePlacesIndex(places.value)
+        for (let i = index; i < places.value.length; i++) {
+            const placeId = places?.value[i]?.id
+            if (placeId && indexById.value.has(placeId)) {
+                indexById.value.set(placeId, i)
+            }
+        }
     }
 
     return {
