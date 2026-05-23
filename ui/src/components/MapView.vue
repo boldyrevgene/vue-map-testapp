@@ -9,6 +9,8 @@ import { MapService } from '@/services'
 import { useAppStore } from '@/stores/app-store'
 import { usePlacesStore } from '@/stores/places-store'
 import { useMapStore } from '@/stores/map-store'
+import { PlaceType, type Place } from '@/models'
+import * as mapConstants from '@/constants/map'
 
 const containerRef = useTemplateRef<HTMLDivElement>('mapContainer')
 
@@ -16,7 +18,6 @@ const { placesGroupedByType } = storeToRefs(useMapStore())
 const { fetchPlaces } = usePlacesStore()
 
 let map: maplibregl.Map | null = null
-let mapService: MapService | null = null
 onMounted(() => {
     if (!containerRef.value) {
         return
@@ -25,33 +26,31 @@ onMounted(() => {
     map = new maplibregl.Map({
         container: containerRef.value,
         style: 'https://tiles.openfreemap.org/styles/bright',
-        center: [30.5234, 50.4501],
-        zoom: 12,
+        center: mapConstants.MAP_INIT_CENTER,
+        zoom: mapConstants.MAP_INIT_ZOOM,
         attributionControl: false,
     })
 
-    // collides with side panel if position of attribution control is default
+    // attribution control collides with side panel if its position is default
     map.addControl(new maplibregl.AttributionControl({ compact: false }), 'bottom-left')
 
-    mapService = new MapService(map)
-    mapService.renderPlaces(placesGroupedByType.value)
+    const mapService = new MapService(map)
     fetchPlaces()
+
+    const { isSidePanelExpanded } = storeToRefs(useAppStore())
+
+    watch(isSidePanelExpanded, (isExpanded) => mapService.shiftMapCenter(isExpanded))
+
+    // watch each place type separately for single type update only, when possible
+    for (let placeType of Object.values(PlaceType)) {
+        watch(() => placesGroupedByType.value[placeType], (places: Place[]) => {
+            mapService.renderTypePlaces(placeType, places)
+        })
+    }
 })
 
 onUnmounted(() => {
     map?.remove()
-})
-
-const { isSidePanelExpanded } = storeToRefs(useAppStore())
-
-// moves center of map according to side panel state
-watch(isSidePanelExpanded, (isExpanded) => {
-    mapService?.shiftMapCenter(isExpanded)
-})
-
-
-watch(placesGroupedByType, (places) => {
-    mapService?.renderPlaces(places)
 })
 
 </script>

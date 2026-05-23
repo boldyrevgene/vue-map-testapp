@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import type { Place } from '@/models'
-import apiService, { ApiError } from '@/services/api-service'
+import { apiService, ApiError } from '@/services'
 
 export const usePlacesStore = defineStore('places', () => {
 
@@ -27,10 +27,20 @@ export const usePlacesStore = defineStore('places', () => {
         }
     }
 
+    async function createPlace(place: Omit<Place, 'id'>) {
+        // todo: call API method
+    }
+
+    async function removePlace(id: string) {
+        // todo: call API method
+    }
+
     return {
         places,
         isLoading,
         error,
-        fetchPlaces
+        fetchPlaces,
+        createPlace,
+        removePlace,
     }
 })

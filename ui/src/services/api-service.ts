@@ -43,5 +43,3 @@ export class ApiError extends Error {
 }
 
 export const apiService = new ApiService(config)
-
-export default apiService
