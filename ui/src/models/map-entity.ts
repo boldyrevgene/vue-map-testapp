@@ -19,6 +19,11 @@ export interface Place extends MapEntity {
     description?: string
 }
 
+export interface SelectedPlace {
+    place: Place,
+    state: 'view' | 'edit'
+}
+
 export interface User extends MapEntity {
     name: string
 }

@@ -6,9 +6,13 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { MapService } from '@/services'
 
-import { useAppStore } from '@/stores/app-store'
-import { usePlacesStore } from '@/stores/places-store'
-import { useMapStore } from '@/stores/map-store'
+
+import {
+    useAppStore,
+    useMapStore,
+    usePlacesStore,
+    useUsersStore
+} from '@/stores'
 import { PlaceType, type Place } from '@/models'
 import * as mapConstants from '@/constants/map'
 
@@ -51,6 +55,34 @@ onMounted(() => {
     }
 
     watch(activePlaceTypes, (types) => mapService.filterPlaces(types))
+
+    const { selectUser } = useUsersStore()
+    const { selectPlace } = usePlacesStore()
+    mapService.onMarkerClick((id, type) => {
+        if (type === 'user') {
+            selectUser(id)
+        }
+
+        if (type === 'place') {
+            selectPlace(id)
+        }
+    })
+
+    // highlight selected user on the map
+    const { selectedUser } = storeToRefs(useUsersStore())
+    watch(selectedUser, (user) => {
+        if (user) {
+            mapService.selectUser(user.id)
+        }
+    })
+
+    // highlight selected place on the map
+    const { selectedPlace } = storeToRefs(usePlacesStore())
+    watch(selectedPlace, (place) => {
+        if (place) {
+            mapService.selectPlace(place.place.id, place.place.type)
+        }
+    })
 })
 
 onUnmounted(() => {

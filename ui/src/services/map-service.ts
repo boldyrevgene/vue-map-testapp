@@ -4,14 +4,21 @@ import type { FeatureCollection, Point } from 'geojson'
 import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/styles'
 
 import { PlaceType, type Place } from '@/models'
-import type { MarkerState } from '@/types'
 import { mapIconService } from './map-icon-service'
+
+type MarkerClickCallback = (id: string, type: 'user' | 'place') => void | null
 
 export class MapService {
 
     static readonly MARKER_HEIGHT = 48
 
     areImagesLoaded: Promise<void>
+
+    private selectedUserId: string = ''
+    private selectedPlaceId: string = ''
+    private selectedPlaceType: PlaceType | null = null
+
+    private markerClickCallback: MarkerClickCallback = null;
 
     constructor(private map: maplibregl.Map) {
         this.areImagesLoaded = this.addCustomMarkers()
@@ -105,6 +112,71 @@ export class MapService {
                 isVisible ? 'visible' : 'none',
             )
         }
+    }
+
+    onMarkerClick(callback: MarkerClickCallback) {
+        this.markerClickCallback = callback
+    }
+
+    /**
+     * Changes user marker to the 'selected' state
+     * 
+     * @param id user id
+     */
+    selectUser(id: string): void {
+        if (id === this.selectedUserId) {
+            return
+        }
+
+        this.unselectUser(this.selectedUserId)
+
+        // todo: make new selection
+
+        // update selection state
+        this.selectedUserId = id
+    }
+
+    unselectUser(id: string): void {
+        if (!id) {
+            return
+        }
+
+        this.selectedUserId = ''
+    }
+
+    /**
+     * Changes place marker to the 'selected' state
+     * 
+     * @param id place id
+     * @param type place type
+     */
+    selectPlace(id: string, type: PlaceType): void {
+        if (id === this.selectedPlaceId && type === this.selectedPlaceType) {
+            return
+        }
+
+        this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
+
+        // todo: make new selection
+
+        // update selection state
+        this.selectedPlaceId = id
+        this.selectedPlaceType = type
+    }
+
+    unselectPlace(id: string, type: PlaceType | null): void {
+        if (!id || !type) {
+            return
+        }
+
+
+        this.selectedPlaceId = ''
+        this.selectedPlaceType = null
+    }
+
+    unselectAll() {
+        this.unselectUser(this.selectedUserId)
+        this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
     }
 
     /**

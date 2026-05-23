@@ -21,7 +21,10 @@ declare module 'vue' {
     ElOption: typeof import('element-plus/es')['ElOption']
     ElSelect: typeof import('element-plus/es')['ElSelect']
     MapView: typeof import('./src/components/MapView.vue')['default']
+    PlaceDetails: typeof import('./src/components/PlaceDetails.vue')['default']
+    PlaceForm: typeof import('./src/components/PlaceForm.vue')['default']
     SidePanel: typeof import('./src/components/SidePanel.vue')['default']
     SidePanelContainer: typeof import('./src/components/SidePanelContainer.vue')['default']
+    UserDetails: typeof import('./src/components/UserDetails.vue')['default']
   }
 }
