@@ -1,17 +1,9 @@
-import { computed, ref, toRaw } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import type { Place, SelectedPlace } from '@/models'
+import { buildEntitiesIndex, type MapEntitiesIndex, type Place, type SelectedPlace } from '@/models'
 import { apiService, ApiError } from '@/services'
 
-// hash map with place.id - array index as key-value pair
-type PlacesIdIndex = Map<string, number>
-
-function makePlacesIndex(places: Place[]): PlacesIdIndex {
-    return new Map(
-        places.map((place, index) => [place.id, index])
-    )
-}
 
 export const usePlacesStore = defineStore('places', () => {
 
@@ -19,13 +11,22 @@ export const usePlacesStore = defineStore('places', () => {
     const isLoading = ref<boolean>(false)
     const error = ref<ApiError | null>(null)
 
-    const indexById = computed<PlacesIdIndex>(() => makePlacesIndex(places.value))
+    const indexById = ref<MapEntitiesIndex>(new Map())
+    function getPlaceById(id: string): Place | null {
+        const index = indexById.value.get(id)
+        if ('number' === typeof index && index >= 0) {
+            return places.value[index] || null 
+        }
+
+        return null
+    }
 
     async function fetchPlaces() {
         isLoading.value = true
         error.value = null
         try {
             places.value = await apiService.fetchPlaces()
+            indexById.value = buildEntitiesIndex(places.value)
         } catch (err) {
             if (err instanceof ApiError) {
                 error.value = err
@@ -40,13 +41,18 @@ export const usePlacesStore = defineStore('places', () => {
 
 
     const selectedPlace = ref<SelectedPlace | null>(null)
+    // selects place for view details
     function selectPlace(id: string) {
-        if ('number' !== typeof indexById.value.get(id)) {
-            return
-        }
-
-        selectedPlace.value = places.value[indexById.value.get(id) as number]
-            ? {place: toRaw(places.value[indexById.value.get(id) as number]) as Place, state: 'view'}
+        const place = getPlaceById(id)
+        selectedPlace.value = place
+            ? {place, state: 'view'}
+            : null
+    }
+    // selects place for edit
+    function editPlace(id: string) {
+        const place = getPlaceById(id)
+        selectedPlace.value = place
+            ? {place, state: 'edit'}
             : null
     }
 
@@ -56,62 +62,44 @@ export const usePlacesStore = defineStore('places', () => {
         }
     }
 
-    function editPlace(id: string) {
-        if (id !== selectedPlace.value?.place.id) {
-            return
-        }
-
-        selectedPlace.value = {
-            place: selectedPlace.value.place,
-            state: 'edit'
-        }
-    }
 
     async function createPlace(place: Omit<Place, 'id'>) {
         // todo: call API method
 
-        // on success response
-        // places.value.push(response)
-        // indexById[response.id] = places.value.length - 1
+        // todo: update index on success API call
+        // indexById.value.set(<Response.place.id>, places.value.length - 1)
     }
 
     async function savePlace(place: Place) {
         // todo: call API method
-
-        // on success response
-        // places.value[indexById[place.id]] = place
     }
 
     async function removePlace(id: string) {
         // todo: call API method
 
         // on success removing
-        const index = indexById.value.get(id);
-        if (!index && index !== 0) {
-            return
-        }
-
-        places.value.splice(index, 1)
         if (selectedPlace.value?.place.id === id) {
             resetSelection()
         }
-        for (let i = index; i < places.value.length; i++) {
-            const placeId = places?.value[i]?.id
-            if (placeId && indexById.value.has(placeId)) {
-                indexById.value.set(placeId, i)
-            }
+
+        // todo: on success API call
+        const index = indexById.value.get(id)
+        if ('number' === typeof index && index >= 0) {
+            places.value.splice(index, 1)
+            indexById.value = buildEntitiesIndex(places.value)
         }
     }
 
     return {
         places,
+        getPlaceById,
+        fetchPlaces,
         isLoading,
         error,
         selectedPlace,
         selectPlace,
-        resetSelection,
         editPlace,
-        fetchPlaces,
+        resetSelection,
         createPlace,
         savePlace,
         removePlace,

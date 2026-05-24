@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { useTemplateRef, onMounted, onUnmounted, watch } from 'vue'
+import {
+    useTemplateRef,
+    onMounted,
+    onUnmounted,
+    watch,
+    toRaw,
+    computed,
+    effectScope,
+} from 'vue'
 import { storeToRefs } from 'pinia'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { MapService } from '@/services'
-
 
 import {
     useAppStore,
@@ -13,7 +20,6 @@ import {
     usePlacesStore,
     useUsersStore
 } from '@/stores'
-import { PlaceType, type Place } from '@/models'
 import * as mapConstants from '@/constants/map'
 
 const containerRef = useTemplateRef<HTMLDivElement>('mapContainer')
@@ -24,20 +30,32 @@ const placesStore = usePlacesStore()
 const usersStore = useUsersStore()
 
 const { isSidePanelExpanded } = storeToRefs(appStore)
-const { placesGroupedByType, activePlaceTypes } = storeToRefs(mapStore)
-const { selectedPlace } = storeToRefs(placesStore)
+const {
+    activePlaceTypes,
+    closestUsers,
+} = storeToRefs(mapStore)
+const { places, selectedPlace } = storeToRefs(placesStore)
 const { users, selectedUser } = storeToRefs(usersStore)
 
 const { fetchPlaces, selectPlace } = placesStore
 const { fetchUsers, selectUser } = usersStore
 
-let map: maplibregl.Map | null = null
+const selectionSnapshot = computed(() => ({
+    selectedPlace: selectedPlace.value?.place ?? null,
+    selectedUser: selectedUser.value,
+    closestUsers: closestUsers.value
+        .map(({ user }) => user),
+}))
+
+let maplibreInst: maplibregl.Map | null = null
+const scope = effectScope()
+
 onMounted(() => {
     if (!containerRef.value) {
         return
     }
 
-    map = new maplibregl.Map({
+    maplibreInst = new maplibregl.Map({
         container: containerRef.value,
         style: {
             version: 8,
@@ -57,58 +75,52 @@ onMounted(() => {
     })
 
     // attribution control collides with side panel if its position is default
-    map.addControl(new maplibregl.AttributionControl({ compact: false }), 'bottom-left')
+    maplibreInst.addControl(new maplibregl.AttributionControl({ compact: false }), 'bottom-left')
 
-    const mapService = new MapService(map)
+    const mapService = new MapService(maplibreInst)
     fetchPlaces()
     fetchUsers()
 
-    watch(isSidePanelExpanded, (isExpanded) => mapService.shiftMapCenter(isExpanded || false))
+    mapService.onLoad(map => {
 
-    // watch each place type separately for single type update only, when possible
-    for (let placeType of Object.values(PlaceType)) {
-        watch(() => placesGroupedByType.value[placeType], (places: Place[]) => {
-            mapService.renderTypePlaces(placeType, places)
-            // re-apply filter so a newly-created layer respects current state
-            mapService.filterPlaces(activePlaceTypes.value)
+        scope.run(() => {
+
+            if (places.value.length) {
+                map.setPlaces(toRaw(places.value))
+            } else {
+                watch(places, (loadedPlaces) => map.setPlaces(toRaw(loadedPlaces)), { once: true })
+            }
+
+            if (users.value.length) {
+                map.setUsers(toRaw(users.value))
+            } else {
+                watch(users, (loadedUsers) => map.setUsers(toRaw(loadedUsers)), { once: true })
+            }
+
+            // applys places filter
+            watch(activePlaceTypes, (types) => map.filterPlaces(types))
+
+            // syncs the full selection snapshot (place + user + closest users) to the map
+            watch(selectionSnapshot, (snapshot) => map.setSelection(toRaw(snapshot)), { immediate: true })
+
+            watch(isSidePanelExpanded, (isExpanded) => map.shiftMapCenter(isExpanded || false))
+
+            map.onMarkerClick((id, type) => {
+                if (type === 'user') {
+                    selectUser(id)
+                }
+
+                if (type === 'place') {
+                    selectPlace(id)
+                }
+            })
         })
-    }
-
-    watch(activePlaceTypes, (types) => mapService.filterPlaces(types))
-
-    watch(users, (newUsers) => mapService.renderUsers(newUsers))
-
-    mapService.onMarkerClick((id, type) => {
-        if (type === 'user') {
-            selectUser(id)
-        }
-
-        if (type === 'place') {
-            selectPlace(id)
-        }
-    })
-
-    // highlight selected user on the map
-    watch(selectedUser, (user) => {
-        if (user) {
-            mapService.selectUser(user.id)
-        } else {
-            mapService.resetUserSelection()
-        }
-    })
-
-    // highlight selected place on the map
-    watch(selectedPlace, (place) => {
-        if (place) {
-            mapService.selectPlace(place.place.id, place.place.type)
-        } else {
-            mapService.resetPlaceSelection()
-        }
     })
 })
 
 onUnmounted(() => {
-    map?.remove()
+    scope.stop()
+    maplibreInst?.remove()
 })
 
 </script>

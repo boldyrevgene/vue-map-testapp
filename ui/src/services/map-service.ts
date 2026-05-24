@@ -1,28 +1,285 @@
-import maplibregl from 'maplibre-gl'
-import type { FeatureCollection, Point } from 'geojson'
+import maplibregl, { GeoJSONSource, type SourceSpecification } from 'maplibre-gl'
 
 import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/styles'
 
 import { PlaceType, type MapEntity, type Place, type User } from '@/models'
-import type { MarkerType } from '@/types'
 import { mapIconService } from './map-icon-service'
 
 type MarkerClickCallback = (id: string, type: 'user' | 'place') => void
 
+export interface SelectionSnapshot {
+    selectedPlace: Place | null
+    selectedUser: User | null
+    closestUsers: User[]
+}
+
+export interface MapPublicApi {
+    setPlaces(places: Place[]): void
+    addPlace(place: Place): void
+    removePlace(place: Place): void
+    filterPlaces(activePlaceTypes: Set<PlaceType>): void
+
+    setUsers(users: User[]): void
+
+    setSelection(snapshot: SelectionSnapshot): void
+
+    onMarkerClick(callback: MarkerClickCallback): void
+
+    shiftMapCenter(isSidePanelExpanded: boolean): void
+}
+export type OnLoadCallback = (map: MapPublicApi) => void
+
 export class MapService {
 
     static readonly MARKER_HEIGHT = 48
+    static readonly USERS_SOURCE_ID = 'users'
 
     areImagesLoaded: Promise<void>
 
-    private selectedUserId: string = ''
-    private selectedPlaceId: string = ''
-    private selectedPlaceType: PlaceType | null = null
-
     private markerClickCallback: MarkerClickCallback | null = null
+
+    // prevents user to use any of method before maplibregl.Map full initialization 
+    private publicApi: MapPublicApi = {
+        setPlaces: this.setPlaces.bind(this),
+        addPlace: this.addPlace.bind(this),
+        removePlace: this.removePlace.bind(this),
+        filterPlaces: this.filterPlaces.bind(this),
+
+        setUsers: this.setUsers.bind(this),
+
+        setSelection: this.setSelection.bind(this),
+
+        onMarkerClick: this.onMarkerClick.bind(this),
+
+        shiftMapCenter: this.shiftMapCenter.bind(this),
+    }
+
+    private placesByType: Map<PlaceType, Place[]> = new Map()
+
+    // list of features grouped by a geoJSONSource id
+    private features: Map<string, Map<string, MapEntity>> = new Map()
 
     constructor(private map: maplibregl.Map) {
         this.areImagesLoaded = this.addCustomMarkers()
+
+        Object.values(PlaceType).forEach(placeType => {
+            this.placesByType.set(placeType, [])
+            this.features.set(this.getPlaceSourceId(placeType), new Map())
+        })
+        this.features.set(MapService.USERS_SOURCE_ID, new Map())
+    }
+
+    /**
+     * Provides access to the MapService API when the map is ready to use
+     * 
+     * @param callback - callback function for work with the map API
+     */
+    async onLoad(callback: OnLoadCallback): Promise<void> {
+        if (!this.map.isStyleLoaded()) {
+            this.map.once('load', () => this.onLoad(callback))
+            return
+        }
+        await this.areImagesLoaded
+
+        // Sets up sources for places (for each place type separetely)
+        for (const placeType of Object.values(PlaceType)) {
+            const sourceId = this.getPlaceSourceId(placeType)
+            this.map.addSource(sourceId, this.getSourceTemplate())
+
+            // markers default state layer
+            this.addSymbolLayer(sourceId, sourceId, mapIconService.getMarkerId(placeType, 'default'))
+            this.bindLayerEvents(sourceId, 'place')
+
+            // marker selected state layer
+            this.addSymbolLayer(
+                `${sourceId}__selected`,
+                sourceId,
+                mapIconService.getMarkerId(placeType, 'selected'),
+                ['==', ['get', 'id'], '']
+            )
+        }
+
+        // Sets up source for users
+        const usersSourceId = MapService.USERS_SOURCE_ID
+        this.map.addSource(usersSourceId, this.getSourceTemplate())
+
+        // markers default state layer
+        this.addSymbolLayer(usersSourceId, usersSourceId, mapIconService.getMarkerId('user', 'default'))
+        this.bindLayerEvents(usersSourceId, 'user')
+
+        // markers closest state layer
+        const closestLayerId = `${usersSourceId}__closest`
+        this.addSymbolLayer(
+            `${usersSourceId}__closest`,
+            usersSourceId,
+            mapIconService.getMarkerId('user', 'closest'),
+            ['==', ['get', 'id'], '']
+        )
+        this.bindLayerEvents(closestLayerId, 'user')
+
+        // markers selected state layer
+        this.addSymbolLayer(
+            `${usersSourceId}__selected`,
+            usersSourceId,
+            mapIconService.getMarkerId('user', 'selected'),
+            ['==', ['get', 'id'], '']
+        )
+
+        callback.call(this, this.publicApi)
+    }
+
+    /**
+     * Sets/Resets places on the map
+     * 
+     * @param places - list of places
+     */
+    private setPlaces(places: Place[]): void {
+
+        // reset
+        for (const placeType of this.placesByType.keys()) {
+            this.placesByType.set(placeType, [])
+            this.features.set(this.getPlaceSourceId(placeType), new Map())
+        }
+
+        // populate
+        for (const place of places) {
+            this.addToPlaceType(place)
+            this.addToFeatures(this.getPlaceSourceId(place.type), place)
+        }
+
+        // sync to map
+        for (const placeType of this.placesByType.keys()) {
+            const sourceId = this.getPlaceSourceId(placeType)
+            const source = this.map.getSource<GeoJSONSource>(sourceId)
+            if (!source) {
+                continue
+            }
+
+            source.setData({
+                type: 'FeatureCollection',
+                features: this.entitiesToFeatures(this.placesByType.get(placeType) || [])
+            })
+        }
+    }
+
+    /**
+     * Adds single place on the map
+     * 
+     * @param place - place instance
+     */
+    private addPlace(place: Place): void {
+        const sourceId = this.getPlaceSourceId(place.type)
+
+        const source = this.map.getSource<GeoJSONSource>(sourceId)
+        if (!source) {
+            return
+        }
+
+        source.updateData({
+            add: this.entitiesToFeatures([place])
+        })
+
+        this.addToFeatures(sourceId, place)
+        this.addToPlaceType(place)
+    }
+
+    private addToFeatures(sourceId: string, entity: MapEntity) {
+        this.features.get(sourceId)?.set(entity.id, entity)
+    }
+
+    private addToPlaceType(place: Place) {
+        this.placesByType.get(place.type)?.push(place)
+    }
+
+    /**
+     * Removes single place from the map
+     * 
+     * @param place - place instance
+     * @returns 
+     */
+    private removePlace(place: Place): void {
+        const sourceId = this.getPlaceSourceId(place.type)
+
+        const source = this.map.getSource<GeoJSONSource>(sourceId)
+        if (!source) {
+            return
+        }
+
+        source.updateData({
+            remove: [place.id]
+        })
+
+        this.removeFromFeatures(sourceId, place)
+        this.removeFromPlaceType(place)
+    }
+
+    private removeFromFeatures(sourceId: string, entity: MapEntity) {
+        this.features.get(sourceId)?.delete(entity.id)
+    }
+
+    private removeFromPlaceType(place: Place) {
+        const byType = this.placesByType.get(place.type)
+        if (!byType) {
+            return
+        }
+
+        const index = byType.findIndex(({id}) => id === place.id)
+        if (index < 0 ) {
+            return
+        }
+
+        byType.splice(index, 1)
+    }
+
+    private setUsers(users: User[]): void {
+        const sourceId = MapService.USERS_SOURCE_ID
+        const source = this.map.getSource<GeoJSONSource>(sourceId)
+
+        if (!source) {
+            return
+        }
+
+        // reset
+        this.features.set(sourceId, new Map())
+
+        // populate
+        for (const user of users) {
+            this.addToFeatures(sourceId, user)
+        }
+
+        // sync to map
+        source.setData({
+            type: 'FeatureCollection',
+            features: this.entitiesToFeatures(users)
+        })
+    }
+
+    private entitiesToFeatures(entities: MapEntity[]): GeoJSON.Feature[] {
+        return entities.map(({ id, name, coordinates }) => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates },
+            properties: { id, name },
+        }))
+    }
+
+    private getSourceTemplate(): SourceSpecification {
+        return {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        }
+    }
+
+    /**
+     * Returns the source id for a places layer of the given type.
+     * Use USERS_SOURCE_ID for users.
+     *
+     * @param type place type
+     */
+    private getPlaceSourceId(type: PlaceType): string {
+        return `places-${type}`
     }
 
     /**
@@ -31,40 +288,11 @@ export class MapService {
      *
      * @param isSidePanelExpanded side panel state
      */
-    shiftMapCenter(isSidePanelExpanded: boolean): void {
+    private shiftMapCenter(isSidePanelExpanded: boolean): void {
         this.map.easeTo({
             padding: { right: isSidePanelExpanded ? SIDE_PANEL_DESKTOP_WIDTH : 0 },
             duration: SIDE_PANEL_TRANSITION_MS,
         })
-    }
-
-    /**
-     * Renders places by particular place type
-     *
-     * @param placeType type of place
-     * @param places list of places with the same type
-     */
-    async renderTypePlaces(placeType: PlaceType, places: Place[]) {
-        if (!this.map.isStyleLoaded()) {
-            this.map.once('load', () => this.renderTypePlaces(placeType, places))
-            return
-        }
-        await this.areImagesLoaded
-        this.renderSource(`places-${placeType}`, placeType, places)
-    }
-
-    /**
-     * Renders all users as markers on the map
-     *
-     * @param users list of users
-     */
-    async renderUsers(users: User[]) {
-        if (!this.map.isStyleLoaded()) {
-            this.map.once('load', () => this.renderUsers(users))
-            return
-        }
-        await this.areImagesLoaded
-        this.renderSource('users', 'user', users)
     }
 
     /**
@@ -73,7 +301,7 @@ export class MapService {
      *
      * @param activePlaceTypes set of types which should be displayed
      */
-    filterPlaces(activePlaceTypes: Set<PlaceType>): void {
+    private filterPlaces(activePlaceTypes: Set<PlaceType>): void {
         if (!this.map.isStyleLoaded()) {
             this.map.once('load', () => this.filterPlaces(activePlaceTypes))
             return
@@ -82,7 +310,7 @@ export class MapService {
         const showAll = activePlaceTypes.size === 0
 
         for (const placeType of Object.values(PlaceType)) {
-            const layerId = `places-${placeType}`
+            const layerId = this.getPlaceSourceId(placeType)
             if (!this.map.getLayer(layerId)) {
                 continue
             }
@@ -103,72 +331,23 @@ export class MapService {
      * 
      * @param callback calls on map.on('click')
      */
-    onMarkerClick(callback: MarkerClickCallback) {
+    private onMarkerClick(callback: MarkerClickCallback): void {
         this.markerClickCallback = callback
     }
 
     /**
-     * Changes user marker to the 'selected' state
+     * Applies a full selection snapshot to the map.
+     * Recomputes all user/place layer filters from the snapshot
      *
-     * @param id user id
-     */
-    selectUser(id: string): void {
-        if (id === this.selectedUserId) {
-            return
-        }
-
-        this.unselectUser(this.selectedUserId)
-        this.selectMarker('users', id)
-        this.selectedUserId = id
-    }
-
-    unselectUser(id: string): void {
-        if (id !== this.selectedUserId) {
-            return
-        }
-
-        this.unselectMarker('users')
-        this.selectedUserId = ''
-    }
-
-    resetUserSelection(): void {
-        this.unselectUser(this.selectedUserId)
-    }
-
-    /**
-     * Changes place marker to the 'selected' state
+     * TODO: optimize by diffing the incoming snapshot against the previously
+     * applied one and updating only the marker groups that actually changed,
+     * to avoid setFilter calls on layers whose state stays the same.
      *
-     * @param id place id
-     * @param type place type
+     * @param snapshot full selection state — selected place, selected user, closest users
      */
-    selectPlace(id: string, type: PlaceType): void {
-        if (id === this.selectedPlaceId || type === this.selectedPlaceType) {
-            return
-        }
-
-        this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
-        this.selectMarker(`places-${type}`, id)
-        this.selectedPlaceId = id
-        this.selectedPlaceType = type
-    }
-
-    unselectPlace(id: string, type: PlaceType | null): void {
-        if (!id || !type || id !== this.selectedPlaceId || type !== this.selectedPlaceType) {
-            return
-        }
-
-        this.unselectMarker(`places-${type}`)
-        this.selectedPlaceId = ''
-        this.selectedPlaceType = null
-    }
-
-    resetPlaceSelection(): void {
-        this.unselectPlace(this.selectedPlaceId, this.selectedPlaceType)
-    }
-
-    resetSelection(): void {
-        this.resetUserSelection()
-        this.resetPlaceSelection()
+    private setSelection(snapshot: SelectionSnapshot): void {
+        this.setUserMarkerStates(snapshot.selectedUser, snapshot.closestUsers)
+        this.setPlaceMarkerStates(snapshot.selectedPlace)
     }
 
     /**
@@ -197,64 +376,56 @@ export class MapService {
     }
 
     /**
-     * Sets the marker on the map to 'selected' state
-     * 
-     * @param featureId id of User or Place
+     * Sets each user marker to its visual state — default, selected or closest —
+     * according to the given selection.
+     * Implementation switches per-state layers' filters so every user feature
+     * is shown only on the layer that matches its current state.
+     *
+     * @param selectedUser currently selected user, or null
+     * @param closestUsers currently highlighted closest users
      */
-    private selectMarker(sourceId: string, featureId: string): void {
-        this.map.setFilter(sourceId, ['!=', ['get', 'id'], featureId])
-        this.map.setFilter(`${sourceId}__selected`, ['==', ['get', 'id'], featureId])
+    private setUserMarkerStates(selectedUser: User | null, closestUsers: User[]): void {
+        const selectedId = selectedUser?.id ?? ''
+        const closestIds = closestUsers.map(({ id }) => id)
+        const specialIds = selectedId ? [...closestIds, selectedId] : closestIds
+
+        const usersSourceId = MapService.USERS_SOURCE_ID
+
+        this.map.setFilter(usersSourceId,
+            specialIds.length ? ['!', ['in', ['get', 'id'], ['literal', specialIds]]] : null
+        )
+        this.map.setFilter(`${usersSourceId}__selected`,
+            selectedId ? ['==', ['get', 'id'], selectedId] : ['==', ['get', 'id'], '']
+        )
+        this.map.setFilter(`${usersSourceId}__closest`,
+            closestIds.length
+                ? ['all', ['in', ['get', 'id'], ['literal', closestIds]], ['!=', ['get', 'id'], selectedId]]
+                : ['==', ['get', 'id'], '']
+        )
     }
 
     /**
-     * Resets marker state from 'selected' to 'default
-     * 
+     * Sets each place marker to its visual state — default or selected —
+     * across every place type.
+     * Implementation switches per-state layers' filters so the selected place
+     * appears only on its type's selected layer, while all other places stay default.
+     *
+     * @param selectedPlace currently selected place, or null
      */
-    private unselectMarker(sourceId: string): void {
-        this.map.setFilter(sourceId, null)
-        this.map.setFilter(`${sourceId}__selected`, ['==', ['get', 'id'], ''])
-    }
+    private setPlaceMarkerStates(selectedPlace: Place | null): void {
+        const selectedId = selectedPlace?.id ?? ''
+        const selectedType = selectedPlace?.type ?? null
 
-    /**
-     * Creates map source or updates it if it's already exist
-     * 
-     * @param iconType specific for data type icon
-     * @param entities list of users or places
-     */
-    private renderSource(sourceId: string, iconType: MarkerType, entities: MapEntity[]): void {
-        const data = this.toGeoJSON(entities)
+        for (const placeType of Object.values(PlaceType)) {
+            const sourceId = this.getPlaceSourceId(placeType)
+            const isSelectedType = placeType === selectedType
 
-        const source = this.map.getSource(sourceId)
-        if (source) {
-            (source as maplibregl.GeoJSONSource).setData(data)
-            return
-        }
-
-        const callbackType: 'user' | 'place' = iconType === 'user' ? 'user' : 'place'
-
-        this.map.addSource(sourceId, { type: 'geojson', data })
-
-        this.addSymbolLayer(sourceId, sourceId, mapIconService.getMarkerId(iconType, 'default'))
-        this.bindLayerEvents(sourceId, callbackType)
-
-        const selectedLayerId = `${sourceId}__selected`
-        this.addSymbolLayer(selectedLayerId, sourceId, mapIconService.getMarkerId(iconType, 'selected'), ['==', ['get', 'id'], ''])
-    }
-
-    /**
-     * Converts list of users or places to geoJSON
-     * 
-     * @param entities User[] | Place[]
-     * @returns geoJSON to set in a source
-     */
-    private toGeoJSON(entities: MapEntity[]): FeatureCollection<Point> {
-        return {
-            type: 'FeatureCollection',
-            features: entities.map(({ id, name, coordinates }) => ({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates },
-                properties: { id, name },
-            })),
+            this.map.setFilter(sourceId,
+                isSelectedType ? ['!=', ['get', 'id'], selectedId] : null
+            )
+            this.map.setFilter(`${sourceId}__selected`,
+                isSelectedType ? ['==', ['get', 'id'], selectedId] : ['==', ['get', 'id'], '']
+            )
         }
     }
 
@@ -305,7 +476,7 @@ export class MapService {
             }
 
             const id = feature.properties?.id as string
-            this.markerClickCallback(id, type)
+            this.markerClickCallback.call(this, id, type)
         })
     }
 }

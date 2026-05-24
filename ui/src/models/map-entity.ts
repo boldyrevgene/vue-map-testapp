@@ -6,6 +6,14 @@ export interface MapEntity {
     coordinates: LngLat
 }
 
+export type MapEntitiesIndex = Map<string, number>
+
+export function buildEntitiesIndex(entities: MapEntity[]): MapEntitiesIndex {
+    return new Map(
+        entities.map((entity, index) => [entity.id, index])
+    )
+}
+
 export enum PlaceType {
     Building = 'building',
     Transport = 'transport',
@@ -25,3 +33,4 @@ export interface SelectedPlace {
 }
 
 export type User = MapEntity
+export type ClosestUser = {user: User, distance: number}

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useAppStore, usePlacesStore } from '@/stores'
+import { useAppStore, usePlacesStore, useMapStore, useUsersStore } from '@/stores'
 
 import PlaceForm from '@/components/PlaceForm.vue'
 import { mapIconService } from '@/services/map-icon-service'
@@ -10,8 +10,11 @@ import { mapIconService } from '@/services/map-icon-service'
 const { collapseSidePanel, expandSidePanel } = useAppStore()
 const { resetSelection } = usePlacesStore()
 const { selectedPlace } = storeToRefs(usePlacesStore())
+const { closestUsers } = storeToRefs(useMapStore())
+const { selectUser } = useUsersStore()
 
 const iconSrc = ref<string>('')
+const closestUserIconSrc = ref<string>('')
 
 watch(selectedPlace, async (selected) => {
     if (!selected) {
@@ -23,8 +26,10 @@ watch(selectedPlace, async (selected) => {
 
 }, { immediate: true })
 
-onMounted(() => {
+onMounted(async () => {
     expandSidePanel()
+    const img = await mapIconService.getMarkerImage('user', 'closest', 32)
+    closestUserIconSrc.value = img.src
 })
 </script>
 
@@ -64,6 +69,23 @@ onMounted(() => {
                     <p class="details__value">{{ selectedPlace.place.description }}</p>
                 </div>
 
+                <el-table v-if="closestUsers.length" :data="closestUsers" :show-header="false" class="closest-users"
+                    @row-click="(row) => selectUser(row.user.id)">
+                    <el-table-column width="44">
+                        <template #default>
+                            <img :src="closestUserIconSrc" class="closest-users__icon" alt="" />
+                        </template>
+                    </el-table-column>
+                    <el-table-column>
+                        <template #default="{ row }">{{ row.user.name }}</template>
+                    </el-table-column>
+                    <el-table-column width="80" align="right">
+                        <template #default="{ row }">
+                            <span class="closest-users__distance">{{ row.distance.toFixed(2) }} km</span>
+                        </template>
+                    </el-table-column>
+                </el-table>
+
             </div>
 
         </SidePanel>
@@ -78,7 +100,29 @@ onMounted(() => {
         height: 100%;
         width: 100%;
     }
+}
 
-    &-content {}
+.closest-users {
+    margin-top: 12px;
+    border: 1px solid var(--el-border-color);
+    border-radius: 0;
+    overflow: hidden;
+
+    &__icon {
+        display: block;
+    }
+
+    &__distance {
+        color: var(--el-text-color-secondary);
+        font-size: 0.85em;
+    }
+
+    :deep(.el-table__cell) {
+        padding: 4px 0;
+    }
+
+    :deep(.el-table__row) {
+        cursor: pointer;
+    }
 }
 </style>

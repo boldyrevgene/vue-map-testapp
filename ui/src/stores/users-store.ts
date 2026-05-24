@@ -1,16 +1,9 @@
-import { computed, ref, toRaw } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import type { User } from '@/models'
+import { buildEntitiesIndex, type MapEntitiesIndex, type User } from '@/models'
 import { apiService, ApiError } from '@/services'
 
-type UsersIdIndex = Map<string, number>
-
-function makeUsersIndex(users: User[]): UsersIdIndex {
-    return new Map(
-        users.map((user, index) => [user.id, index])
-    )
-}
 
 export const useUsersStore = defineStore('users', () => {
 
@@ -18,13 +11,22 @@ export const useUsersStore = defineStore('users', () => {
     const isLoading = ref<boolean>(false)
     const error = ref<ApiError | null>(null)
 
-    const indexById = computed<UsersIdIndex>(() => makeUsersIndex(users.value))
+    const indexById = ref<MapEntitiesIndex>(new Map())
+    function getUserById(id: string): User | null {
+        const index = indexById.value.get(id)
+        if ('number' === typeof index && index >= 0) {
+            return users.value[index] || null 
+        }
+
+        return null
+    }
 
     async function fetchUsers() {
         isLoading.value = true
         error.value = null
         try {
             users.value = await apiService.fetchUsers()
+            indexById.value = buildEntitiesIndex(users.value)
         } catch (err) {
             if (err instanceof ApiError) {
                 error.value = err
@@ -39,14 +41,8 @@ export const useUsersStore = defineStore('users', () => {
 
     const selectedUser = ref<User | null>(null)
 
-    function selectUser(id: string) {
-        if ('number' !== typeof indexById.value.get(id)) {
-            return
-        }
-
-        selectedUser.value = users.value[indexById.value.get(id) as number]
-            ? toRaw(users.value[indexById.value.get(id) as number]) as User
-            : null
+    function selectUser(id: string){
+        selectedUser.value = getUserById(id)
     }
 
     function resetSelection() {
@@ -57,6 +53,7 @@ export const useUsersStore = defineStore('users', () => {
 
     return {
         users,
+        getUserById,
         isLoading,
         error,
         selectedUser,

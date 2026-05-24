@@ -20,6 +20,8 @@ declare module 'vue' {
     ElMain: typeof import('element-plus/es')['ElMain']
     ElOption: typeof import('element-plus/es')['ElOption']
     ElSelect: typeof import('element-plus/es')['ElSelect']
+    ElTable: typeof import('element-plus/es')['ElTable']
+    ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     MapView: typeof import('./src/components/MapView.vue')['default']
     PlaceDetails: typeof import('./src/components/PlaceDetails.vue')['default']
     PlaceForm: typeof import('./src/components/PlaceForm.vue')['default']
