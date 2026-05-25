@@ -34,7 +34,7 @@ export class MapService {
     static readonly MARKER_HEIGHT = 48
     static readonly USERS_SOURCE_ID = 'users'
 
-    areImagesLoaded: Promise<void>
+    private areImagesLoaded: Promise<void>
 
     private markerClickCallback: MarkerClickCallback | null = null
 
@@ -58,6 +58,12 @@ export class MapService {
 
     // list of features grouped by a geoJSONSource id
     private features: Map<string, Map<string, MapEntity>> = new Map()
+
+    private selectionSnapshot: SelectionSnapshot = {
+        selectedPlace: null,
+        selectedUser: null,
+        closestUsers: []
+    }
 
     constructor(private map: maplibregl.Map) {
         this.areImagesLoaded = this.addCustomMarkers()
@@ -339,40 +345,11 @@ export class MapService {
      * Applies a full selection snapshot to the map.
      * Recomputes all user/place layer filters from the snapshot
      *
-     * TODO: optimize by diffing the incoming snapshot against the previously
-     * applied one and updating only the marker groups that actually changed,
-     * to avoid setFilter calls on layers whose state stays the same.
-     *
      * @param snapshot full selection state — selected place, selected user, closest users
      */
     private setSelection(snapshot: SelectionSnapshot): void {
         this.setUserMarkerStates(snapshot.selectedUser, snapshot.closestUsers)
         this.setPlaceMarkerStates(snapshot.selectedPlace)
-    }
-
-    /**
-     * Loads custom icons to the map instance.
-     * For each user and place type own icon with several states ('default' | 'selected' | 'closest')
-     * Icons are rasterized at MARKER_HEIGHT * devicePixelRatio for hier quality render;
-     * pixelRatio passed to addImage tells maplibre the intended CSS size.
-     */
-    private async addCustomMarkers() {
-        const dpr = window.devicePixelRatio || 1
-        const rasterHeight = MapService.MARKER_HEIGHT * dpr
-
-        const placeStates = ['default', 'selected'] as const
-        for (const placeType of Object.values(PlaceType)) {
-            for (const state of placeStates) {
-                const image = await mapIconService.getMarkerImage(placeType, state, rasterHeight)
-                this.map.addImage(mapIconService.getMarkerId(placeType, state), image, { pixelRatio: dpr })
-            }
-        }
-
-        const userStates = [...placeStates, 'closest'] as const
-        for (const state of userStates) {
-            const image = await mapIconService.getMarkerImage('user', state, rasterHeight)
-            this.map.addImage(mapIconService.getMarkerId('user', state), image, { pixelRatio: dpr })
-        }
     }
 
     /**
@@ -385,23 +362,43 @@ export class MapService {
      * @param closestUsers currently highlighted closest users
      */
     private setUserMarkerStates(selectedUser: User | null, closestUsers: User[]): void {
-        const selectedId = selectedUser?.id ?? ''
-        const closestIds = closestUsers.map(({ id }) => id)
-        const specialIds = selectedId ? [...closestIds, selectedId] : closestIds
-
         const usersSourceId = MapService.USERS_SOURCE_ID
+        
+        const selectedId = selectedUser?.id ?? ''
+        const selectedWasChanged = selectedId !== (this.selectionSnapshot.selectedUser?.id ?? '')
+        if (selectedWasChanged) {
+            this.map.setFilter(`${usersSourceId}__selected`,
+                ['==', ['get', 'id'], selectedId || '']
+            )
+        }
 
-        this.map.setFilter(usersSourceId,
-            specialIds.length ? ['!', ['in', ['get', 'id'], ['literal', specialIds]]] : null
-        )
-        this.map.setFilter(`${usersSourceId}__selected`,
-            selectedId ? ['==', ['get', 'id'], selectedId] : ['==', ['get', 'id'], '']
-        )
-        this.map.setFilter(`${usersSourceId}__closest`,
-            closestIds.length
-                ? ['all', ['in', ['get', 'id'], ['literal', closestIds]], ['!=', ['get', 'id'], selectedId]]
-                : ['==', ['get', 'id'], '']
-        )
+        const closestIds = closestUsers.map(({ id }) => id)
+        const prevClosestIds = this.selectionSnapshot.closestUsers.map(({ id }) => id)
+        const closestSet = new Set([
+            ...closestIds,
+            ...prevClosestIds
+        ])
+        // was not changed if closestSet.size === closestIds.length === prevClosestIds.length
+        const closestWasChanged = closestSet.size !== closestIds.length || closestSet.size !== prevClosestIds.length
+        if (closestWasChanged) {
+            this.map.setFilter(`${usersSourceId}__closest`,
+                closestIds.length
+                    ? ['all', ['in', ['get', 'id'], ['literal', closestIds]], ['!=', ['get', 'id'], selectedId]]
+                    : ['==', ['get', 'id'], '']
+            )
+        }
+
+        const specialIds = selectedId ? [...closestIds, selectedId] : closestIds
+        if (selectedWasChanged || closestWasChanged) {
+            this.map.setFilter(usersSourceId,
+                specialIds.length
+                    ? ['!', ['in', ['get', 'id'], ['literal', specialIds]]]
+                    : null
+            )
+        }
+
+        this.selectionSnapshot.selectedUser = selectedUser
+        this.selectionSnapshot.closestUsers = closestUsers
     }
 
     /**
@@ -416,17 +413,34 @@ export class MapService {
         const selectedId = selectedPlace?.id ?? ''
         const selectedType = selectedPlace?.type ?? null
 
-        for (const placeType of Object.values(PlaceType)) {
-            const sourceId = this.getPlaceSourceId(placeType)
-            const isSelectedType = placeType === selectedType
+        const changedTypes = new Set()
+        if (selectedType) {
+            changedTypes.add(selectedType)
+        }
+        if (this.selectionSnapshot.selectedPlace?.type) {
+            changedTypes.add(this.selectionSnapshot.selectedPlace?.type)
+        }
+
+        // changedTypes.size === 1 means that type was not changed
+        if (this.selectionSnapshot.selectedPlace?.id === selectedId && changedTypes.size === 1) {
+            return
+        }
+
+        for (const changedType of changedTypes) {
+            const sourceId = this.getPlaceSourceId(changedType as PlaceType)
+            const isSelectedType = changedType === selectedType
 
             this.map.setFilter(sourceId,
-                isSelectedType ? ['!=', ['get', 'id'], selectedId] : null
+                isSelectedType
+                    ? ['!=', ['get', 'id'], selectedId]
+                    : null
             )
             this.map.setFilter(`${sourceId}__selected`,
-                isSelectedType ? ['==', ['get', 'id'], selectedId] : ['==', ['get', 'id'], '']
+                ['==', ['get', 'id'], selectedId || '']
             )
         }
+
+        this.selectionSnapshot.selectedPlace = selectedPlace
     }
 
     /**
@@ -458,6 +472,31 @@ export class MapService {
         }
 
         this.map.addLayer(layer)
+    }
+
+    /**
+     * Loads custom icons to the map instance.
+     * For each user and place type own icon with several states ('default' | 'selected' | 'closest')
+     * Icons are rasterized at MARKER_HEIGHT * devicePixelRatio for hier quality render;
+     * pixelRatio passed to addImage tells maplibre the intended CSS size.
+     */
+    private async addCustomMarkers() {
+        const dpr = window.devicePixelRatio || 1
+        const rasterHeight = MapService.MARKER_HEIGHT * dpr
+
+        const placeStates = ['default', 'selected'] as const
+        for (const placeType of Object.values(PlaceType)) {
+            for (const state of placeStates) {
+                const image = await mapIconService.getMarkerImage(placeType, state, rasterHeight)
+                this.map.addImage(mapIconService.getMarkerId(placeType, state), image, { pixelRatio: dpr })
+            }
+        }
+
+        const userStates = [...placeStates, 'closest'] as const
+        for (const state of userStates) {
+            const image = await mapIconService.getMarkerImage('user', state, rasterHeight)
+            this.map.addImage(mapIconService.getMarkerId('user', state), image, { pixelRatio: dpr })
+        }
     }
 
     private bindLayerEvents(layerId: string, type: 'user' | 'place'): void {
