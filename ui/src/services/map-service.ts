@@ -1,4 +1,4 @@
-import maplibregl, { GeoJSONSource, type SourceSpecification } from 'maplibre-gl'
+import maplibregl, { GeoJSONSource, type GeoJSONFeatureDiff, type SourceSpecification } from 'maplibre-gl'
 
 import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/styles'
 
@@ -15,7 +15,8 @@ export interface SelectionSnapshot {
 
 export interface MapPublicApi {
     setPlaces(places: Place[]): void
-    addPlace(place: Place): void
+    addPlace(place: Place, centerOnNewPlace: boolean): void
+    updatePlace(place: Place): void
     removePlace(place: Place): void
     filterPlaces(activePlaceTypes: Set<PlaceType>): void
 
@@ -42,6 +43,7 @@ export class MapService {
     private publicApi: MapPublicApi = {
         setPlaces: this.setPlaces.bind(this),
         addPlace: this.addPlace.bind(this),
+        updatePlace: this.updatePlace.bind(this),
         removePlace: this.removePlace.bind(this),
         filterPlaces: this.filterPlaces.bind(this),
 
@@ -173,7 +175,7 @@ export class MapService {
      * 
      * @param place - place instance
      */
-    private addPlace(place: Place): void {
+    private addPlace(place: Place, centerOnNewPlace = false): void {
         const sourceId = this.getPlaceSourceId(place.type)
 
         const source = this.map.getSource<GeoJSONSource>(sourceId)
@@ -184,6 +186,12 @@ export class MapService {
         source.updateData({
             add: this.entitiesToFeatures([place])
         })
+        if (centerOnNewPlace) {
+            this.map.flyTo({
+                center: place.coordinates,
+                duration: 1500,
+            });
+        }
 
         this.addToFeatures(sourceId, place)
         this.addToPlaceType(place)
@@ -195,6 +203,70 @@ export class MapService {
 
     private addToPlaceType(place: Place) {
         this.placesByType.get(place.type)?.push(place)
+    }
+
+    /**
+     * Updates place source
+     * 
+     * @param place - updated place
+     * @returns 
+     */
+    private updatePlace(place: Place): void {
+        const sourceId = this.getPlaceSourceId(place.type)
+
+        const feature = this.features.get(sourceId)?.get(place.id)
+        if (feature) {
+            const source = this.map.getSource<GeoJSONSource>(sourceId)
+            if (!source) {
+                return
+            }
+
+            source.updateData({
+                update: [this.getPlaceFeatureDiff(place, feature as Place)]
+            })
+
+            this.features.get(sourceId)?.set(place.id, place)
+            return
+        } else {
+
+            for (const [currSourceId, currFeatures] of this.features) {
+                if (currSourceId === sourceId) {
+                    continue
+                }
+
+                const currFeature = currFeatures.get(place.id)
+                if (!currFeature) {
+                    continue
+                }
+
+                this.removePlace({ ...place, type: (currFeature as Place).type})
+                this.addPlace(place)
+
+                break
+            }
+        }
+    }
+
+    private getPlaceFeatureDiff(newPlace: Place, prevPlace: Place): GeoJSONFeatureDiff {
+        const diff: GeoJSONFeatureDiff = {
+            id: prevPlace.id
+        }
+
+        if (newPlace.name !== prevPlace.name) {
+            diff.addOrUpdateProperties = [
+                { key: 'name', value: newPlace.name }
+            ]
+        }
+
+        const { coordinates } = newPlace
+        if (coordinates[0] !== prevPlace.coordinates[0] || coordinates[1] !== prevPlace.coordinates[1]) {
+            diff.newGeometry = {
+                type: 'Point',
+                coordinates
+            }
+        }
+
+        return diff
     }
 
     /**
@@ -262,6 +334,7 @@ export class MapService {
 
     private entitiesToFeatures(entities: MapEntity[]): GeoJSON.Feature[] {
         return entities.map(({ id, name, coordinates }) => ({
+            id,
             type: 'Feature',
             geometry: { type: 'Point', coordinates },
             properties: { id, name },

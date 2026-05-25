@@ -47,4 +47,59 @@ router.post('/', async (req, res) => {
   }
 })
 
+// PUT /api/places/:id
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!id) {
+      return res.status(400).json({ error: 'id is required' })
+    }
+
+    const { name, type, coordinates, description } = req.body
+    if (!name || !type || !coordinates) {
+      return res.status(400).json({ error: 'name, type and coordinates are required' })
+    }
+
+    const places = await readPlaces()
+    const updatedPlace = { id, name, type, coordinates, description: description ?? '' }
+
+    const index = places.findIndex(place => place.id === id)
+    if (index < 0) {
+      return res.status(404).json({ error: 'place is not found' })
+    }
+
+    places[index] = updatedPlace
+    await writePlaces(places)
+
+    res.status(200).json(updatedPlace)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save place' })
+  }
+})
+
+// DELETE /api/places/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!id) {
+      return res.status(400).json({ error: 'id is required' })
+    }
+
+    const places = await readPlaces()
+
+    const index = places.findIndex(place => place.id === id)
+    if (index < 0) {
+      return res.status(404).json({ error: 'place is not found' })
+    }
+
+    places.splice(index, 1)
+    await writePlaces(places)
+
+    res.status(200).json({ id, status: 'Ok' })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete place' })
+  }
+})
+
 export default router

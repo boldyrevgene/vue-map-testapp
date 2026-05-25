@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useSlots } from 'vue'
 import { ArrowRightBold, CloseBold } from '@element-plus/icons-vue'
 
 const emit = defineEmits(['collapsed', 'closed'])
+const slots = useSlots()
 </script>
 
 <template>
@@ -30,6 +32,9 @@ const emit = defineEmits(['collapsed', 'closed'])
             <slot />
         </el-scrollbar>
 
+        <div v-if="slots.actions" class="side-panel-actions">
+            <slot name="actions" />
+        </div>
 
     </el-card>
 </template>
@@ -37,22 +42,45 @@ const emit = defineEmits(['collapsed', 'closed'])
 <style scoped lang="scss">
 
 .side-panel {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+
     &-header {
         display: flex;
         justify-content: space-between;
     }
 
     &-content {
+        flex: 1;
+        min-height: 0;
         padding: 20px;
     }
 
-    :deep(.side-panel-content__view) {
-        height: 100%;
+    &-actions {
+        flex: 0 0 auto;
         display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 20px;
+        border-top: 1px solid var(--el-border-color-lighter);
     }
 
     :deep(.side-panel-body) {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
         padding: 0;
+    }
+
+    // makes the slot content fill the scrollable area
+    // (forms inside rely on this to push their actions to the bottom)
+    :deep(.side-panel-content__view) {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 }
 </style>

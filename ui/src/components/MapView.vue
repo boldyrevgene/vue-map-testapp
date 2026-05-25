@@ -3,6 +3,7 @@ import {
     useTemplateRef,
     onMounted,
     onUnmounted,
+    onScopeDispose,
     watch,
     toRaw,
     computed,
@@ -34,10 +35,13 @@ const {
     activePlaceTypes,
     closestUsers,
 } = storeToRefs(mapStore)
-const { places, selectedPlace } = storeToRefs(placesStore)
+const {
+    places,
+    selectedPlace,
+} = storeToRefs(placesStore)
 const { users, selectedUser } = storeToRefs(usersStore)
 
-const { fetchPlaces, selectPlace } = placesStore
+const { fetchPlaces, selectPlace, addPlaceEventListener } = placesStore
 const { fetchUsers, selectUser } = usersStore
 
 const selectionSnapshot = computed(() => ({
@@ -97,6 +101,21 @@ onMounted(() => {
                 watch(users, (loadedUsers) => map.setUsers(toRaw(loadedUsers)), { once: true })
             }
 
+            const unsubscribePlaceEvent = addPlaceEventListener(event => {
+                switch (event.action) {
+                    case 'created':
+                        map.addPlace(event.place, true)
+                        break
+                    case 'updated':
+                        map.updatePlace(event.place)
+                        break
+                    case 'deleted':
+                        map.removePlace(event.place)
+                        break
+                }
+            })
+            onScopeDispose(unsubscribePlaceEvent)
+
             // applys places filter
             watch(activePlaceTypes, (types) => map.filterPlaces(types))
 
@@ -104,12 +123,12 @@ onMounted(() => {
             watch(selectionSnapshot, (snapshot) => map.setSelection(toRaw(snapshot)), { immediate: true })
 
             watch(isSidePanelExpanded, (isExpanded) => map.shiftMapCenter(isExpanded || false))
-
+            
             map.onMarkerClick((id, type) => {
                 if (type === 'user') {
                     selectUser(id)
                 }
-
+                
                 if (type === 'place') {
                     selectPlace(id)
                 }

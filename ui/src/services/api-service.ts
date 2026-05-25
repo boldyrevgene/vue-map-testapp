@@ -17,6 +17,52 @@ export class ApiService {
     }
 
     /**
+     * Calls place creation API method
+     * 
+     * @param place - place to create
+     * @returns 
+     */
+    async createPlace(place: Partial<Place>): Promise<Place> {
+        return this.handleResponse<Place>(
+            await fetch(`${this.config.apiBase}/places`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(place)
+            })
+        )
+    }
+
+    /**
+     * Calls API for update the place
+     *
+     * @param place - place to update
+     * @returns
+     */
+    async updatePlace(place: Place): Promise<Place> {
+        return this.handleResponse<Place>(
+            await fetch(`${this.config.apiBase}/places/${place.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(place)
+            })
+        )
+    }
+
+    /**
+     * Calls deliting API method
+     * 
+     * @param id - id of place which should be deleted
+     * @returns 
+     */
+    async deletePlace(id: string): Promise<{id: string}> {
+        return this.handleResponse<{id: string}>(
+            await fetch(`${this.config.apiBase}/places/${id}`, {
+                method: 'DELETE'
+            })
+        )
+    }
+
+    /**
      * Fetches the full list of users from the server
      *
      * @returns list of users

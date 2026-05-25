@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 
 import { useUsersStore } from './users-store';
@@ -11,8 +11,20 @@ export const useAppStore = defineStore('appStore', () => {
     // active only if user/place is selected on map or if form of place creation are rendered
     const { selectedUser  } = storeToRefs(useUsersStore())
     const { resetSelection: resetUserSelection } = useUsersStore()
-    const { draftPlace, selectedPlace } = storeToRefs(usePlacesStore())
+    const { draftPlace, selectedPlace, error } = storeToRefs(usePlacesStore())
     const { cancelCreation, resetSelection: resetPlaceSelection } = usePlacesStore()
+
+    watch(error, (error) => {
+        if (error) {
+            ElNotification({
+                title: 'Error',
+                message: error.message,
+                type: 'error',
+                position: 'top-left',
+                offset: 60
+            })
+        }
+    })
 
     const isSidePanelActive = computed(() => selectedUser.value || selectedPlace.value || draftPlace.value)
 

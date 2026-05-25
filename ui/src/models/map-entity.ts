@@ -34,5 +34,13 @@ export interface SelectedPlace {
     state: 'view' | 'edit'
 }
 
+
+//events that fire when server successfully handled operation on single a place item
+export type PlaceEventType = 'created' | 'updated' | 'deleted'
+export interface PlaceEvent {
+    action: PlaceEventType
+    place: Place
+}
+
 export type User = MapEntity
 export type ClosestUser = {user: User, distance: number}

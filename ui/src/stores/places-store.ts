@@ -1,7 +1,13 @@
-import { ref } from 'vue'
+import { ref, toRaw } from 'vue'
 import { defineStore } from 'pinia'
 
-import { buildEntitiesIndex, type MapEntitiesIndex, type Place, type SelectedPlace } from '@/models'
+import {
+    buildEntitiesIndex,
+    type MapEntitiesIndex,
+    type Place,
+    type PlaceEvent,
+    type SelectedPlace,
+} from '@/models'
 import { apiService, ApiError } from '@/services'
 
 
@@ -77,31 +83,111 @@ export const usePlacesStore = defineStore('places', () => {
     function cancelCreation() {
         draftPlace.value = null
     }
-    async function createPlace(place: Omit<Place, 'id'>) {
-        // todo: call API method
 
-        // todo: update index on success API call
-        // indexById.value.set(<Response.place.id>, places.value.length - 1)
-        // selectPlace(<Response.place.id>)
+    // A single place operation events
+    // fires on success server response for POST/PUT/DELETE methods
+    type PlaceEventListener = (event: PlaceEvent) => void
+    const placeEventListeners = new Set<PlaceEventListener>()
+
+    function addPlaceEventListener(cb: PlaceEventListener) {
+        placeEventListeners.add(cb)
+        return () => placeEventListeners.delete(cb)
+    }
+
+    function emitPlaceEvent(event: PlaceEvent) {
+        placeEventListeners.forEach(cb => {
+            try {
+                cb(event)
+            } catch (err) {
+                console.error('place event listener threw', err)
+            }
+        })
+    }
+
+
+    async function createPlace(place: Omit<Place, 'id'>) {
+        isLoading.value = true
+        error.value = null
+        try {
+            const created = await apiService.createPlace(place)
+
+            // add created place to the places list
+            places.value.push(created)
+            // update the index
+            indexById.value.set(created.id, places.value.length - 1)
+            // select just created place
+            selectPlace(created.id)
+
+            emitPlaceEvent({ action: 'created', place: created })
+        } catch (err) {
+            if (err instanceof ApiError) {
+                error.value = err
+            } else {
+                error.value = new ApiError('Unknown error', undefined, err)
+                console.error(err)
+            }
+        } finally {
+            isLoading.value = false
+        }
     }
 
     async function savePlace(place: Place) {
-        // todo: call API method
+        isLoading.value = true
+        error.value = null
+        try {
+            const updated = await apiService.updatePlace(place)
+
+            const index = indexById.value.get(place.id)
+            if ('number' === typeof index && index >= 0) {
+                places.value[index] = updated
+            }
+            selectPlace(place.id)
+
+            emitPlaceEvent({ action: 'updated', place: updated })
+        } catch (err) {
+            if (err instanceof ApiError) {
+                error.value = err
+            } else {
+                error.value = new ApiError('Unknown error', undefined, err)
+                console.error(err)
+            }
+        } finally {
+            isLoading.value = false
+        }
     }
 
-    async function removePlace(id: string) {
-        // todo: call API method
+    async function deletePlace(id: string) {
+        isLoading.value = true
+        error.value = null
 
-        // on success removing
-        if (selectedPlace.value?.place.id === id) {
-            resetSelection()
-        }
+        const placeToDelete = toRaw(getPlaceById(id))
 
-        // todo: on success API call
-        const index = indexById.value.get(id)
-        if ('number' === typeof index && index >= 0) {
-            places.value.splice(index, 1)
-            indexById.value = buildEntitiesIndex(places.value)
+        try {
+            await apiService.deletePlace(id)
+
+            if (selectedPlace.value?.place.id === id) {
+                resetSelection()
+            }
+
+            // remove place from the places list and update the index
+            const index = indexById.value.get(id)
+            if ('number' === typeof index && index >= 0) {
+                places.value.splice(index, 1)
+                indexById.value = buildEntitiesIndex(places.value)
+            }
+
+            if (placeToDelete) {
+                emitPlaceEvent({ action: 'deleted', place: placeToDelete })
+            }
+        } catch (err) {
+            if (err instanceof ApiError) {
+                error.value = err
+            } else {
+                error.value = new ApiError('Unknown error', undefined, err)
+                console.error(err)
+            }
+        } finally {
+            isLoading.value = false
         }
     }
 
@@ -120,6 +206,7 @@ export const usePlacesStore = defineStore('places', () => {
         cancelCreation,
         createPlace,
         savePlace,
-        removePlace,
+        deletePlace,
+        addPlaceEventListener,
     }
 })

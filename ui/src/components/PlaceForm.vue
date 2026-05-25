@@ -159,6 +159,7 @@ function validateField(field: string) {
                     :min="-180"
                     :max="180"
                     :precision="6"
+                    :step="0.000001"
                     :controls="false"
                     class="place-form__coord-input"
                 />
@@ -170,6 +171,7 @@ function validateField(field: string) {
                     :min="-90"
                     :max="90"
                     :precision="6"
+                    :step="0.000001"
                     :controls="false"
                     class="place-form__coord-input"
                 />

@@ -34,4 +34,7 @@ declare module 'vue' {
     SidePanelContainer: typeof import('./src/components/SidePanelContainer.vue')['default']
     UserDetails: typeof import('./src/components/UserDetails.vue')['default']
   }
+  export interface GlobalDirectives {
+    vLoading: typeof import('element-plus/es')['ElLoadingDirective']
+  }
 }

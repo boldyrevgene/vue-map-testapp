@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { Delete, Edit } from '@element-plus/icons-vue'
 
 import { useAppStore, usePlacesStore, useMapStore, useUsersStore } from '@/stores'
 
@@ -10,8 +11,8 @@ import type { Place } from '@/models'
 
 const { collapseSidePanel, expandSidePanel, closeSidePanel } = useAppStore()
 const { closestUsers } = storeToRefs(useMapStore())
-const { draftPlace, selectedPlace } = storeToRefs(usePlacesStore())
-const { createPlace, savePlace } = usePlacesStore()
+const { draftPlace, selectedPlace, isLoading } = storeToRefs(usePlacesStore())
+const { createPlace, savePlace, editPlace, deletePlace } = usePlacesStore()
 const { selectUser } = useUsersStore()
 
 const iconSrc = ref<string>('')
@@ -57,7 +58,7 @@ onMounted(async () => {
 
 <template>
     <div class="place-details">
-        <SidePanel @collapsed="collapseSidePanel()" @closed="closeSidePanel()">
+        <SidePanel v-loading="isLoading" @collapsed="collapseSidePanel()" @closed="closeSidePanel()">
 
             <div v-if="placeToEdit" class="form">
                 <PlaceForm
@@ -112,8 +113,12 @@ onMounted(async () => {
                         </template>
                     </el-table-column>
                 </el-table>
-
             </div>
+
+            <template v-if="selectedPlace && selectedPlace.state === 'view'" #actions>
+                <el-button @click="deletePlace(selectedPlace.place.id)" type="danger" :icon="Delete" />
+                <el-button @click="editPlace(selectedPlace.place.id)" type="primary" :icon="Edit">Edit</el-button>
+            </template>
 
         </SidePanel>
     </div>
@@ -122,20 +127,6 @@ onMounted(async () => {
 <style scoped lang="scss">
 
 .place-details {
-
-    .side-panel {
-        height: 100%;
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-
-        :deep(.el-card__body) {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-    }
 
     .form {
         min-height: 0;
@@ -147,6 +138,7 @@ onMounted(async () => {
 
 .closest-users {
     margin-top: 12px;
+    margin-bottom: 18px;
     border: 1px solid var(--el-border-color);
     border-radius: 0;
     overflow: hidden;
