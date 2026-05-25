@@ -6,8 +6,7 @@ import { useAppStore, useUsersStore } from '@/stores'
 
 import { mapIconService } from '@/services/map-icon-service'
 
-const { collapseSidePanel, expandSidePanel } = useAppStore()
-const { resetSelection } = useUsersStore()
+const { collapseSidePanel, expandSidePanel, closeSidePanel } = useAppStore()
 const { selectedUser } = storeToRefs(useUsersStore())
 
 const iconSrc = ref<string>('')
@@ -28,7 +27,7 @@ onMounted(() => {
 
 <template>
     <div class="user-details">
-        <SidePanel @collapsed="collapseSidePanel()" @closed="resetSelection()">
+        <SidePanel @collapsed="collapseSidePanel()" @closed="closeSidePanel()">
 
             <div v-if="selectedUser" class="user-details-content">
 

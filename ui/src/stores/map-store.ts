@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 
 import { PlaceType, type ClosestUser } from '@/models'
@@ -10,7 +10,7 @@ import { CLOSEST_USERS_DISPLAY_COUNT } from '@/constants'
 
 export const useMapStore = defineStore('mapStore', () => {
     const { selectedPlace } = storeToRefs(usePlacesStore())
-    const { users } = storeToRefs(useUsersStore())
+    const { users, selectedUser } = storeToRefs(useUsersStore())
 
     // for filters - contains types which should be displayed on the map
     const activePlaceTypes = ref<Set<PlaceType>>(new Set())
@@ -19,7 +19,9 @@ export const useMapStore = defineStore('mapStore', () => {
     }
 
     const closestUsers = computed<ClosestUser[]>(() => {
-        if (!selectedPlace.value) return []
+        if (!selectedPlace.value || selectedUser.value) {
+            return []
+        }
 
         const coords = selectedPlace.value.place.coordinates
         return users.value
@@ -27,6 +29,20 @@ export const useMapStore = defineStore('mapStore', () => {
             .sort((a, b) => a.distance - b.distance)
             .slice(0, CLOSEST_USERS_DISPLAY_COUNT)
             
+    })
+
+    // only a single selection at the same time
+    const { resetSelection: resetPlaceSelection } = usePlacesStore()
+    const { resetSelection: resetUserSelection } = useUsersStore()
+    watch(selectedUser, (user) => {
+        if (user) {
+            resetPlaceSelection()
+        }
+    })
+    watch(selectedPlace, (place) => {
+        if (place) {
+            resetUserSelection()
+        }
     })
 
     return {

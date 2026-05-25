@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { buildEntitiesIndex, type MapEntitiesIndex, type Place, type SelectedPlace } from '@/models'
@@ -47,6 +47,10 @@ export const usePlacesStore = defineStore('places', () => {
         selectedPlace.value = place
             ? {place, state: 'view'}
             : null
+        
+        if (place) {
+            draftPlace.value = null
+        }
     }
     // selects place for edit
     function editPlace(id: string) {
@@ -63,11 +67,20 @@ export const usePlacesStore = defineStore('places', () => {
     }
 
 
+    const draftPlace = ref<Partial<Place> | null>(null)
+    function createDraft() {
+        draftPlace.value = {}
+        selectedPlace.value = null
+    }
+    function cancelCreation() {
+        draftPlace.value = null
+    }
     async function createPlace(place: Omit<Place, 'id'>) {
         // todo: call API method
 
         // todo: update index on success API call
         // indexById.value.set(<Response.place.id>, places.value.length - 1)
+        // selectPlace(<Response.place.id>)
     }
 
     async function savePlace(place: Place) {
@@ -100,6 +113,9 @@ export const usePlacesStore = defineStore('places', () => {
         selectPlace,
         editPlace,
         resetSelection,
+        draftPlace,
+        createDraft,
+        cancelCreation,
         createPlace,
         savePlace,
         removePlace,

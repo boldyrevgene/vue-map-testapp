@@ -7,14 +7,20 @@ import { useAppStore, usePlacesStore, useMapStore, useUsersStore } from '@/store
 import PlaceForm from '@/components/PlaceForm.vue'
 import { mapIconService } from '@/services/map-icon-service'
 
-const { collapseSidePanel, expandSidePanel } = useAppStore()
-const { resetSelection } = usePlacesStore()
-const { selectedPlace } = storeToRefs(usePlacesStore())
+const { collapseSidePanel, expandSidePanel, closeSidePanel } = useAppStore()
+const { draftPlace, selectedPlace } = storeToRefs(usePlacesStore())
 const { closestUsers } = storeToRefs(useMapStore())
 const { selectUser } = useUsersStore()
 
 const iconSrc = ref<string>('')
 const closestUserIconSrc = ref<string>('')
+
+
+const placeToEdit = computed(() => {
+    return selectedPlace.value?.state === 'edit'
+        ? selectedPlace.value.place
+        : draftPlace.value
+})
 
 watch(selectedPlace, async (selected) => {
     if (!selected) {
@@ -35,12 +41,12 @@ onMounted(async () => {
 
 <template>
     <div class="place-details">
-        <SidePanel @collapsed="collapseSidePanel()" @closed="resetSelection()">
+        <SidePanel @collapsed="collapseSidePanel()" @closed="closeSidePanel()">
 
-            <div v-if="selectedPlace?.state === 'edit'" class="form">
-                <PlaceForm />
+            <div v-if="placeToEdit" class="form">
+                <PlaceForm :place="placeToEdit"/>
             </div>
-            <div v-else v-if="selectedPlace?.place" class="place-details-content">
+            <div v-else-if="selectedPlace?.place" class="place-details-content">
 
                 <div class="details__header">
                     <img :src="iconSrc" class="details__icon" alt="{}" />

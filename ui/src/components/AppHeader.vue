@@ -3,15 +3,17 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ArrowLeftBold, AddLocation } from '@element-plus/icons-vue'
 
-import { useAppStore } from '@/stores/app-store'
-import { useMapStore } from '@/stores/map-store'
 import { PlaceType } from '@/models'
+import { useAppStore, useMapStore, usePlacesStore } from '@/stores'
 
 const { isSidePanelExpaтdable } = storeToRefs(useAppStore())
 const { expandSidePanel } = useAppStore()
 
 const { activePlaceTypes } = storeToRefs(useMapStore())
 const { filterPlaces } = useMapStore()
+
+const { createDraft } = usePlacesStore()
+const { draftPlace } = storeToRefs(usePlacesStore())
 
 const placeTypeOptions = Object.values(PlaceType)
 
@@ -44,7 +46,11 @@ const selectedPlaceTypes = computed<PlaceType[]>({
         </div>
 
         <div class="app-header-actions">
-            <el-button :icon="AddLocation" circle />
+            <el-button
+                v-if="!draftPlace"
+                :icon="AddLocation" circle
+                @click="createDraft()"
+            />
             <el-button
                 v-if="isSidePanelExpaтdable"
                 :icon="ArrowLeftBold" circle

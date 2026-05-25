@@ -5,14 +5,22 @@ import UserDetails from '@/components/UserDetails.vue'
 import PlaceDetails from '@/components/PlaceDetails.vue'
 
 import { usePlacesStore, useUsersStore } from '@/stores';
+import { watch } from 'vue';
 
 const { selectedUser } = storeToRefs(useUsersStore())
-const { selectedPlace } = storeToRefs(usePlacesStore())
+const { selectedPlace, draftPlace } = storeToRefs(usePlacesStore())
+const { cancelCreation } = usePlacesStore()
+
+watch([draftPlace, selectedUser], ([draft, user]) => {
+    if (draft && user) {
+        cancelCreation()
+    }
+})
 </script>
 
 <template>
     <div class="side-panel-container">
-        <PlaceDetails v-if="selectedPlace"></PlaceDetails>
+        <PlaceDetails v-if="selectedPlace || draftPlace"></PlaceDetails>
         <UserDetails v-if="selectedUser"></UserDetails>
     </div>
 </template>
