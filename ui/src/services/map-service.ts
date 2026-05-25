@@ -2,7 +2,7 @@ import maplibregl, { GeoJSONSource, type SourceSpecification } from 'maplibre-gl
 
 import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/styles'
 
-import { PlaceType, type MapEntity, type Place, type User } from '@/models'
+import { PLACE_TYPES_LIST, PlaceType, type MapEntity, type Place, type User } from '@/models'
 import { mapIconService } from './map-icon-service'
 
 type MarkerClickCallback = (id: string, type: 'user' | 'place') => void
@@ -68,7 +68,7 @@ export class MapService {
     constructor(private map: maplibregl.Map) {
         this.areImagesLoaded = this.addCustomMarkers()
 
-        Object.values(PlaceType).forEach(placeType => {
+        PLACE_TYPES_LIST.forEach(placeType => {
             this.placesByType.set(placeType, [])
             this.features.set(this.getPlaceSourceId(placeType), new Map())
         })
@@ -88,7 +88,7 @@ export class MapService {
         await this.areImagesLoaded
 
         // Sets up sources for places (for each place type separetely)
-        for (const placeType of Object.values(PlaceType)) {
+        for (const placeType of PLACE_TYPES_LIST) {
             const sourceId = this.getPlaceSourceId(placeType)
             this.map.addSource(sourceId, this.getSourceTemplate())
 
@@ -315,7 +315,7 @@ export class MapService {
 
         const showAll = activePlaceTypes.size === 0
 
-        for (const placeType of Object.values(PlaceType)) {
+        for (const placeType of PLACE_TYPES_LIST) {
             const layerId = this.getPlaceSourceId(placeType)
             if (!this.map.getLayer(layerId)) {
                 continue
@@ -485,7 +485,7 @@ export class MapService {
         const rasterHeight = MapService.MARKER_HEIGHT * dpr
 
         const placeStates = ['default', 'selected'] as const
-        for (const placeType of Object.values(PlaceType)) {
+        for (const placeType of PLACE_TYPES_LIST) {
             for (const state of placeStates) {
                 const image = await mapIconService.getMarkerImage(placeType, state, rasterHeight)
                 this.map.addImage(mapIconService.getMarkerId(placeType, state), image, { pixelRatio: dpr })

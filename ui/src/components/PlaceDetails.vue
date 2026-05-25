@@ -6,10 +6,12 @@ import { useAppStore, usePlacesStore, useMapStore, useUsersStore } from '@/store
 
 import PlaceForm from '@/components/PlaceForm.vue'
 import { mapIconService } from '@/services/map-icon-service'
+import type { Place } from '@/models'
 
 const { collapseSidePanel, expandSidePanel, closeSidePanel } = useAppStore()
-const { draftPlace, selectedPlace } = storeToRefs(usePlacesStore())
 const { closestUsers } = storeToRefs(useMapStore())
+const { draftPlace, selectedPlace } = storeToRefs(usePlacesStore())
+const { createPlace, savePlace } = usePlacesStore()
 const { selectUser } = useUsersStore()
 
 const iconSrc = ref<string>('')
@@ -32,6 +34,20 @@ watch(selectedPlace, async (selected) => {
 
 }, { immediate: true })
 
+async function saveForm(formData: Partial<Place>) {
+    if (selectedPlace.value && selectedPlace.value.state === 'edit') {
+        await savePlace({ ...selectedPlace.value.place, ...formData, id: selectedPlace.value.place.id! } as Place)
+    } else if (draftPlace.value) {
+        await createPlace(formData as Place)
+    }
+}
+
+function cancelEditing() {
+    if (selectedPlace.value) {
+        selectedPlace.value.state = 'view'
+    }
+}
+
 onMounted(async () => {
     expandSidePanel()
     const img = await mapIconService.getMarkerImage('user', 'closest', 32)
@@ -44,7 +60,12 @@ onMounted(async () => {
         <SidePanel @collapsed="collapseSidePanel()" @closed="closeSidePanel()">
 
             <div v-if="placeToEdit" class="form">
-                <PlaceForm :place="placeToEdit"/>
+                <PlaceForm
+                    :key="placeToEdit.id ?? 'draft'"
+                    :place="placeToEdit"
+                    @canceled="cancelEditing"
+                    @submitted="saveForm"
+                />
             </div>
             <div v-else-if="selectedPlace?.place" class="place-details-content">
 
@@ -105,6 +126,22 @@ onMounted(async () => {
     .side-panel {
         height: 100%;
         width: 100%;
+        display: flex;
+        flex-direction: column;
+
+        :deep(.el-card__body) {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+    }
+
+    .form {
+        min-height: 0;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
     }
 }
 

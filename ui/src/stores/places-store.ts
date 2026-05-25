@@ -58,6 +58,8 @@ export const usePlacesStore = defineStore('places', () => {
         selectedPlace.value = place
             ? {place, state: 'edit'}
             : null
+        
+        draftPlace.value = null
     }
 
     function resetSelection() {

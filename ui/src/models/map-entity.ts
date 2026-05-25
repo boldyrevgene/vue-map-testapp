@@ -22,6 +22,8 @@ export enum PlaceType {
     Shop = 'shop',
 }
 
+export const PLACE_TYPES_LIST = Object.values(PlaceType)
+
 export interface Place extends MapEntity {
     type: PlaceType
     description?: string

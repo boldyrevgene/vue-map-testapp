@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ArrowLeftBold, AddLocation } from '@element-plus/icons-vue'
 
-import { PlaceType } from '@/models'
+import { PLACE_TYPES_LIST, PlaceType } from '@/models'
 import { useAppStore, useMapStore, usePlacesStore } from '@/stores'
 
 const { isSidePanelExpaтdable } = storeToRefs(useAppStore())
@@ -15,7 +15,7 @@ const { filterPlaces } = useMapStore()
 const { createDraft } = usePlacesStore()
 const { draftPlace } = storeToRefs(usePlacesStore())
 
-const placeTypeOptions = Object.values(PlaceType)
+const placeTypeOptions = PLACE_TYPES_LIST
 
 // bridge between Set in store and array-based v-model of el-select
 const selectedPlaceTypes = computed<PlaceType[]>({

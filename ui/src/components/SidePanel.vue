@@ -5,7 +5,7 @@ const emit = defineEmits(['collapsed', 'closed'])
 </script>
 
 <template>
-    <el-card class="side-panel">
+    <el-card body-class="side-panel-body" class="side-panel">
 
         <template #header>
             <div class="side-panel-header">
@@ -26,7 +26,10 @@ const emit = defineEmits(['collapsed', 'closed'])
             </div>
         </template>
 
-        <slot />
+        <el-scrollbar view-class="side-panel-content__view" class="side-panel-content">
+            <slot />
+        </el-scrollbar>
+
 
     </el-card>
 </template>
@@ -37,10 +40,19 @@ const emit = defineEmits(['collapsed', 'closed'])
     &-header {
         display: flex;
         justify-content: space-between;
+    }
 
-        &-actions {
+    &-content {
+        padding: 20px;
+    }
 
-        }
+    :deep(.side-panel-content__view) {
+        height: 100%;
+        display: flex;
+    }
+
+    :deep(.side-panel-body) {
+        padding: 0;
     }
 }
 </style>
