@@ -1,42 +1,66 @@
-# .
+# UI
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue.js 3 SPA на базі Vite. Composition API, Pinia, MapLibre GL JS, Element Plus.
 
-## Recommended IDE Setup
+## Запуск
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
 npm install
+npm run dev       # dev-сервер на http://localhost:5173
+npm run build     # продакшн-збірка (включає type-check)
+npm run type-check  # лише перевірка типів без збірки
 ```
 
-### Compile and Hot-Reload for Development
+## Змінні середовища
 
-```sh
-npm run dev
+Створи файл `.env.local` у директорії `ui/`:
+
+```
+VITE_API_BASE=http://localhost:3000/api
+VITE_WS_URL=ws://localhost:3000
 ```
 
-### Type-Check, Compile and Minify for Production
+## Структура `src/`
 
-```sh
-npm run build
-```
+### `components/`
+
+| Файл | Призначення |
+|------|-------------|
+| `AppHeader.vue` | Верхня панель застосунку: фільтри обʼєктів на мапі за типом, кнопка додавання нового об'єкта, кнопка відображення панелі якщо згорнута |
+| `AppLayout.vue` | Кореневий layout: розміщує карту та бічну панель, керує відображенням панелі. |
+| `MapView.vue` | Ініціалізує MapLibre GL JS, підписується на події карти (кліки по маркерах), синхронізує стан сторів із відображенням на карті через `MapService`. |
+| `PlaceDetails.vue` | Картка вибраного об'єкта: показує деталі місця, список трьох найближчих користувачів, кнопки редагування та видалення/компонент форми для свореня або редагування обʼєкту. |
+| `PlaceForm.vue` | Форма створення/редагування об'єкта з валідацією (Element Plus). |
+| `SidePanel.vue` | Базовий shell бічної панелі: кнопки згортання/закриття, адаптивна поведінка (desktop — права панель, mobile — нижній sheet). |
+| `SidePanelContainer.vue` | Вирішує, який контент рендерити в панелі: `PlaceDetails` або `UserDetails` — залежно від обранного маркеру на карті. |
+| `UserDetails.vue` | Картка вибраного користувача: ім'я та координати. |
+
+### `constants/`
+
+| Файл | Призначення |
+|------|-------------|
+| `map.ts` | Початковий центр та зум карти (Київ), кількість найближчих користувачів для відображення (`CLOSEST_USERS_DISPLAY_COUNT = 3`). |
+| `styles.ts` | Брейкпоінт мобільного вигляду (`MOBILE_BREAKPOINT`), ширина desktop-панелі, висота mobile-панелі у `dvh`, тривалість анімації відображення/приховування панелі. |
+
+### `services/`
+
+| Файл | Призначення |
+|------|-------------|
+| `api-service.ts` | HTTP-клієнт (`ApiService`): методи `fetchPlaces`, `createPlace`, `updatePlace`, `deletePlace`, `fetchUsers`. Централізована обробка HTTP-помилок через `ApiError`. Синглтон `apiService` створюється з `config`. |
+| `map-icon-service.ts` | Завантажує SVG-іконки маркерів, розфарбовує їх залежно від стану (`default` / `selected` / `closest`), растеризує у `HTMLImageElement` потрібного розміру. Кешує SVG-текст у пам'яті. |
+| `map-service.ts` | Вся логіка роботи з MapLibre GL JS: ініціалізація карти, джерела та шари GeoJSON для об'єктів і користувачів, оновлення маркерів, фільтрація, відображення вибору, зсув центру карти. Повертає `MapPublicApi` для використання у компонентах. |
+
+### `stores/`
+
+| Файл | Призначення |
+|------|-------------|
+| `places-store.ts` | Стан об'єктів: список, індекс за `id`, `isLoading`, `error`. CRUD-операції з викликом `apiService` та синхронним оновленням локального масиву (без повторного fetch). Управління вибором місця та станом чернетки (draft) при створенні. |
+| `users-store.ts` | Стан користувачів: список, індекс за `id`, `isLoading`, `error`. Завантаження через `apiService.fetchUsers()`. Управління вибором користувача. |
+| `map-store.ts` | Похідний стор: обчислює список `closestUsers` (Haversine) відносно вибраного місця, зберігає активні типи фільтрів, забезпечує взаємовиключність вибору місця і користувача. |
+| `app-store.ts` | UI-стор: керує станом бічної панелі (expanded / collapsed / closed), слідкує за помилками та показує `ElNotification`, автоматично розгортає панель при появі нового вибору. |
+
+### `utils/`
+
+| Файл | Призначення |
+|------|-------------|
+| `geo.ts` | Функція `haversineDistance(a, b)` — обчислює відстань між двома географічними точками у кілометрах за формулою гаверсинусів. |

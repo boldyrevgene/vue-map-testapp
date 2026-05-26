@@ -1,11 +1,23 @@
 # vue-map-testapp
 
+An interactive map SPA built with Vue.js 3, MapLibre GL JS and a Node.js/Express backend.
+
 ## Structure
 
-- `ui/` — Vue.js 3 SPA (Composition API, Pinia, MapLibre GL JS)
-- `server/` — Node.js + Express REST API + WebSocket server
+- [`ui/`](ui/README.md) — Vue.js 3 SPA (Composition API, Pinia, MapLibre GL JS)
+- [`server/`](server/README.md) — Node.js + Express REST API + WebSocket server
 
 ## Running
+
+### Server
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+Starts the API server at `http://localhost:3000`.
 
 ### UI
 
@@ -15,9 +27,4 @@ npm install
 npm run dev
 ```
 
-### Server
-
-```bash
-cd server
-# TODO
-```
+Starts the Vite dev server at `http://localhost:5173`.
