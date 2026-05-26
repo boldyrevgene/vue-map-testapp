@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH, SIDE_PANEL_MOBILE_HEIGHT_DVH } from '@/constants/styles'
-import { useIsMobile } from '@/composables/useIsMobile'
+import { useIsMobile } from '@/composables'
 
 import AppHeader from '@/components/AppHeader.vue'
 import MapView from '@/components/MapView.vue'

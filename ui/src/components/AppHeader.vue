@@ -5,7 +5,7 @@ import { ArrowLeftBold, ArrowUpBold, AddLocation } from '@element-plus/icons-vue
 
 import { PLACE_TYPES_LIST, PlaceType } from '@/models'
 import { useAppStore, useMapStore, usePlacesStore } from '@/stores'
-import { useIsMobile } from '@/composables/useIsMobile'
+import { useIsMobile } from '@/composables'
 
 const { isSidePanelExpandable } = storeToRefs(useAppStore())
 const { expandSidePanel } = useAppStore()

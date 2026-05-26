@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
 import { ArrowRightBold, ArrowDownBold, CloseBold } from '@element-plus/icons-vue'
-import { useIsMobile } from '@/composables/useIsMobile'
+import { useIsMobile } from '@/composables'
 
 const emit = defineEmits(['collapsed', 'closed'])
 const slots = useSlots()

@@ -43,4 +43,3 @@ export interface PlaceEvent {
 }
 
 export type User = MapEntity
-export type ClosestUser = {user: User, distance: number}

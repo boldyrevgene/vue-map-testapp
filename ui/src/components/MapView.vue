@@ -14,7 +14,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { MapService } from '@/services'
-import { useIsMobile } from '@/composables/useIsMobile'
+import { useIsMobile } from '@/composables'
 import {
     useAppStore,
     useMapStore,
@@ -23,6 +23,7 @@ import {
 } from '@/stores'
 import * as mapConstants from '@/constants/map'
 import { SIDE_PANEL_DESKTOP_WIDTH, SIDE_PANEL_MOBILE_HEIGHT_DVH } from '@/constants/styles'
+import { useUsersGridIndex } from '@/composables'
 
 const containerRef = useTemplateRef<HTMLDivElement>('mapContainer')
 
@@ -36,13 +37,13 @@ const usersStore = useUsersStore()
 const { isSidePanelExpanded } = storeToRefs(appStore)
 const {
     activePlaceTypes,
-    closestUsers,
 } = storeToRefs(mapStore)
 const {
     places,
     selectedPlace,
 } = storeToRefs(placesStore)
 const { users, selectedUser } = storeToRefs(usersStore)
+const { closestUsers } = useUsersGridIndex()
 
 const { fetchPlaces, selectPlace, addPlaceEventListener } = placesStore
 const { fetchUsers, selectUser } = usersStore
@@ -51,7 +52,7 @@ const selectionSnapshot = computed(() => ({
     selectedPlace: selectedPlace.value?.place ?? null,
     selectedUser: selectedUser.value,
     closestUsers: closestUsers.value
-        .map(({ user }) => user),
+        .map(({ item }) => item),
 }))
 
 let maplibreInst: maplibregl.Map | null = null

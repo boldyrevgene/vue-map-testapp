@@ -8,9 +8,10 @@ import { useAppStore, usePlacesStore, useMapStore, useUsersStore } from '@/store
 import PlaceForm from '@/components/PlaceForm.vue'
 import { mapIconService } from '@/services/map-icon-service'
 import type { Place } from '@/models'
+import { useUsersGridIndex } from '@/composables'
 
 const { collapseSidePanel, expandSidePanel, closeSidePanel } = useAppStore()
-const { closestUsers } = storeToRefs(useMapStore())
+const { closestUsers } = useUsersGridIndex()
 const { draftPlace, selectedPlace, isLoading } = storeToRefs(usePlacesStore())
 const { createPlace, savePlace, editPlace, deletePlace } = usePlacesStore()
 const { selectUser } = useUsersStore()
@@ -98,14 +99,14 @@ onMounted(async () => {
                 </div>
 
                 <el-table v-if="closestUsers.length" :data="closestUsers" :show-header="false" class="closest-users"
-                    @row-click="(row) => selectUser(row.user.id)">
+                    @row-click="(row) => selectUser(row.item.id)">
                     <el-table-column width="44">
                         <template #default>
                             <img :src="closestUserIconSrc" class="closest-users__icon" alt="" />
                         </template>
                     </el-table-column>
                     <el-table-column>
-                        <template #default="{ row }">{{ row.user.name }}</template>
+                        <template #default="{ row }">{{ row.item.name }}</template>
                     </el-table-column>
                     <el-table-column width="80" align="right">
                         <template #default="{ row }">

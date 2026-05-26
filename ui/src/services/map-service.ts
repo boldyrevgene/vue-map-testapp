@@ -5,6 +5,10 @@ import { SIDE_PANEL_TRANSITION_MS } from '@/constants/styles'
 import { PLACE_TYPES_LIST, PlaceType, type MapEntity, type Place, type User } from '@/models'
 import { mapIconService } from './map-icon-service'
 
+import { useUsersGridIndex } from '@/composables'
+
+const { index: usersIndex } = useUsersGridIndex()
+
 type MarkerClickCallback = (id: string, type: 'user' | 'place') => void
 
 export interface SelectionSnapshot {
@@ -328,6 +332,7 @@ export class MapService {
         // populate
         for (const user of users) {
             this.addToFeatures(sourceId, user)
+            usersIndex.addItem(user)
         }
 
         // sync to map
