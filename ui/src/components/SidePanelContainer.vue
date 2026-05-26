@@ -33,6 +33,10 @@ watch([draftPlace, selectedUser], ([draft, user]) => {
 
     &.mobile {
         padding: 0 16px 28px 16px;
+
+        :deep(.side-panel) {
+            border-radius: 36px;
+        }
     }
 
     .user-details, .place-details {
