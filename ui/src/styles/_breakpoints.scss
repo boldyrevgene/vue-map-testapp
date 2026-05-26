@@ -1,0 +1,8 @@
+// Keep in sync with MOBILE_BREAKPOINT in src/constants/styles.ts
+$mobile-breakpoint: 768px;
+
+@mixin mobile {
+    @media (width < $mobile-breakpoint) {
+        @content;
+    }
+}

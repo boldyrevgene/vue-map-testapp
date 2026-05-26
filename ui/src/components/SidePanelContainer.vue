@@ -31,6 +31,10 @@ watch([draftPlace, selectedUser], ([draft, user]) => {
     padding: 16px 16px 16px 0;
     box-sizing: border-box;
 
+    &.mobile {
+        padding: 0 16px 28px 16px;
+    }
+
     .user-details, .place-details {
         height: 100%;
         width: 100%;

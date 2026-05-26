@@ -29,7 +29,14 @@ export const useAppStore = defineStore('appStore', () => {
     const isSidePanelActive = computed(() => selectedUser.value || selectedPlace.value || draftPlace.value)
 
     const isSidePanelExpanded = computed(() => isSidePanelActive.value && isSidePanelDisplayed.value)
-    const isSidePanelExpaтdable = computed(() => isSidePanelActive.value && !isSidePanelDisplayed.value)
+    const isSidePanelExpandable = computed(() => isSidePanelActive.value && !isSidePanelDisplayed.value)
+
+    // auto-expand whenever the underlying selection changes while the panelis currently hidden.
+    watch([selectedUser, selectedPlace, draftPlace], () => {
+        if (isSidePanelActive.value && !isSidePanelDisplayed.value) {
+            isSidePanelDisplayed.value = true
+        }
+    })
 
     function expandSidePanel() {
         isSidePanelDisplayed.value = true
@@ -48,7 +55,7 @@ export const useAppStore = defineStore('appStore', () => {
 
     return {
         isSidePanelExpanded,
-        isSidePanelExpaтdable,
+        isSidePanelExpandable,
         expandSidePanel,
         collapseSidePanel,
         closeSidePanel,

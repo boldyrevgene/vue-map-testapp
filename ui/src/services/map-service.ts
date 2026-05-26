@@ -1,6 +1,6 @@
 import maplibregl, { GeoJSONSource, type GeoJSONFeatureDiff, type SourceSpecification } from 'maplibre-gl'
 
-import { SIDE_PANEL_TRANSITION_MS, SIDE_PANEL_DESKTOP_WIDTH } from '@/constants/styles'
+import { SIDE_PANEL_TRANSITION_MS } from '@/constants/styles'
 
 import { PLACE_TYPES_LIST, PlaceType, type MapEntity, type Place, type User } from '@/models'
 import { mapIconService } from './map-icon-service'
@@ -26,7 +26,12 @@ export interface MapPublicApi {
 
     onMarkerClick(callback: MarkerClickCallback): void
 
-    shiftMapCenter(isSidePanelExpanded: boolean): void
+    shiftMapCenter(padding: MapPadding): void
+}
+
+export interface MapPadding {
+    right?: number
+    bottom?: number
 }
 export type OnLoadCallback = (map: MapPublicApi) => void
 
@@ -362,14 +367,15 @@ export class MapService {
     }
 
     /**
-     * Adjusts the map's right padding
-     * so the visible center accounts for the side panel
+     * Adjusts the map's padding so the visible center accounts for an overlay
+     * (side panel on desktop — `right`, or bottom sheet on mobile — `bottom`).
+     * Pass an empty object to reset.
      *
-     * @param isSidePanelExpanded side panel state
+     * @param padding side(s) to inset in pixels; unspecified sides are reset to 0
      */
-    private shiftMapCenter(isSidePanelExpanded: boolean): void {
+    private shiftMapCenter(padding: MapPadding): void {
         this.map.easeTo({
-            padding: { right: isSidePanelExpanded ? SIDE_PANEL_DESKTOP_WIDTH : 0 },
+            padding: { right: 0, bottom: 0, ...padding },
             duration: SIDE_PANEL_TRANSITION_MS,
         })
     }

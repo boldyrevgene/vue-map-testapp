@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { ArrowLeftBold, AddLocation } from '@element-plus/icons-vue'
+import { ArrowLeftBold, ArrowUpBold, AddLocation } from '@element-plus/icons-vue'
 
 import { PLACE_TYPES_LIST, PlaceType } from '@/models'
 import { useAppStore, useMapStore, usePlacesStore } from '@/stores'
+import { useIsMobile } from '@/composables/useIsMobile'
 
-const { isSidePanelExpaтdable } = storeToRefs(useAppStore())
+const { isSidePanelExpandable } = storeToRefs(useAppStore())
 const { expandSidePanel } = useAppStore()
+
+const { isMobile } = useIsMobile()
+const expandIcon = computed(() => isMobile.value ? ArrowUpBold : ArrowLeftBold)
 
 const { activePlaceTypes } = storeToRefs(useMapStore())
 const { filterPlaces } = useMapStore()
@@ -52,8 +56,8 @@ const selectedPlaceTypes = computed<PlaceType[]>({
                 @click="createDraft()"
             />
             <el-button
-                v-if="isSidePanelExpaтdable"
-                :icon="ArrowLeftBold" circle
+                v-if="isSidePanelExpandable"
+                :icon="expandIcon" circle
                 @click="expandSidePanel()"
             />
         </div>
@@ -61,6 +65,8 @@ const selectedPlaceTypes = computed<PlaceType[]>({
 </template>
 
 <style scoped lang="scss">
+
+@use '@/styles/breakpoints' as bp;
 
 .app-header {
     height: 100%;
@@ -71,11 +77,18 @@ const selectedPlaceTypes = computed<PlaceType[]>({
     &-filters {
         &-select {
             width: 280px;
+
+            @include bp.mobile {
+                width: 160px;
+            }
         }
     }
 
     &-actions {
-
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
     }
 }
 

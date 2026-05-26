@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { useSlots } from 'vue'
-import { ArrowRightBold, CloseBold } from '@element-plus/icons-vue'
+import { computed, useSlots } from 'vue'
+import { ArrowRightBold, ArrowDownBold, CloseBold } from '@element-plus/icons-vue'
+import { useIsMobile } from '@/composables/useIsMobile'
 
 const emit = defineEmits(['collapsed', 'closed'])
 const slots = useSlots()
+
+const { isMobile } = useIsMobile()
+const collapseIcon = computed(() => isMobile.value ? ArrowDownBold : ArrowRightBold)
 </script>
 
 <template>
@@ -17,7 +21,7 @@ const slots = useSlots()
 
                 <div class="side-panel-header-actions">
                     <el-button
-                        :icon="ArrowRightBold" circle
+                        :icon="collapseIcon" circle
                         @click="emit('collapsed')"
                     />
                     <el-button

@@ -14,7 +14,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { MapService } from '@/services'
-
+import { useIsMobile } from '@/composables/useIsMobile'
 import {
     useAppStore,
     useMapStore,
@@ -22,8 +22,11 @@ import {
     useUsersStore
 } from '@/stores'
 import * as mapConstants from '@/constants/map'
+import { SIDE_PANEL_DESKTOP_WIDTH, SIDE_PANEL_MOBILE_HEIGHT_DVH } from '@/constants/styles'
 
 const containerRef = useTemplateRef<HTMLDivElement>('mapContainer')
+
+const { isMobile } = useIsMobile()
 
 const appStore = useAppStore()
 const mapStore = useMapStore()
@@ -122,7 +125,20 @@ onMounted(() => {
             // syncs the full selection snapshot (place + user + closest users) to the map
             watch(selectionSnapshot, (snapshot) => map.setSelection(toRaw(snapshot)), { immediate: true })
 
-            watch(isSidePanelExpanded, (isExpanded) => map.shiftMapCenter(isExpanded || false))
+
+            // shifts map center according to side panel visibility
+            // left/right for desktop view
+            // up/down for mobile view
+            watch([isSidePanelExpanded, isMobile], ([isExpanded, mobile]) => {
+                if (!isExpanded) {
+                    map.shiftMapCenter({})
+                    return
+                }
+                map.shiftMapCenter(mobile
+                    ? { bottom: Math.round(window.innerHeight * SIDE_PANEL_MOBILE_HEIGHT_DVH / 100) }
+                    : { right: SIDE_PANEL_DESKTOP_WIDTH }
+                )
+            })
             
             map.onMarkerClick((id, type) => {
                 if (type === 'user') {
