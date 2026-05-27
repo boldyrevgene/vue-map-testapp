@@ -9,16 +9,25 @@ export const useAppStore = defineStore('appStore', () => {
     const isSidePanelDisplayed = ref(false);
 
     // active only if user/place is selected on map or if form of place creation are rendered
-    const { selectedUser  } = storeToRefs(useUsersStore())
+    const { selectedUser, error: usersError  } = storeToRefs(useUsersStore())
     const { resetSelection: resetUserSelection } = useUsersStore()
-    const { draftPlace, selectedPlace, error } = storeToRefs(usePlacesStore())
+    const { draftPlace, selectedPlace, error: placesError } = storeToRefs(usePlacesStore())
     const { cancelCreation, resetSelection: resetPlaceSelection } = usePlacesStore()
 
-    watch(error, (error) => {
-        if (error) {
+    watch([placesError, usersError], ([placesErr, usersErr]) => {
+        if (placesErr) {
             ElNotification({
                 title: 'Error',
-                message: error.message,
+                message: placesErr.message,
+                type: 'error',
+                position: 'top-left',
+                offset: 60
+            })
+        }
+        if (usersErr) {
+            ElNotification({
+                title: 'Error',
+                message: usersErr.message,
                 type: 'error',
                 position: 'top-left',
                 offset: 60

@@ -17,9 +17,9 @@ export const usePlacesStore = defineStore('places', () => {
     const isLoading = ref<boolean>(false)
     const error = ref<ApiError | null>(null)
 
-    const indexById = ref<MapEntitiesIndex>(new Map())
+    let indexById = new Map()
     function getPlaceById(id: string): Place | null {
-        const index = indexById.value.get(id)
+        const index = indexById.get(id)
         if ('number' === typeof index && index >= 0) {
             return places.value[index] || null 
         }
@@ -32,7 +32,7 @@ export const usePlacesStore = defineStore('places', () => {
         error.value = null
         try {
             places.value = await apiService.fetchPlaces()
-            indexById.value = buildEntitiesIndex(places.value)
+            indexById = buildEntitiesIndex(places.value)
         } catch (err) {
             if (err instanceof ApiError) {
                 error.value = err
@@ -114,7 +114,7 @@ export const usePlacesStore = defineStore('places', () => {
             // add created place to the places list
             places.value.push(created)
             // update the index
-            indexById.value.set(created.id, places.value.length - 1)
+            indexById.set(created.id, places.value.length - 1)
             // select just created place
             selectPlace(created.id)
 
@@ -137,7 +137,7 @@ export const usePlacesStore = defineStore('places', () => {
         try {
             const updated = await apiService.updatePlace(place)
 
-            const index = indexById.value.get(place.id)
+            const index = indexById.get(place.id)
             if ('number' === typeof index && index >= 0) {
                 places.value[index] = updated
             }
@@ -170,10 +170,10 @@ export const usePlacesStore = defineStore('places', () => {
             }
 
             // remove place from the places list and update the index
-            const index = indexById.value.get(id)
+            const index = indexById.get(id)
             if ('number' === typeof index && index >= 0) {
                 places.value.splice(index, 1)
-                indexById.value = buildEntitiesIndex(places.value)
+                indexById = buildEntitiesIndex(places.value)
             }
 
             if (placeToDelete) {

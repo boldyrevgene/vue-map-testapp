@@ -39,12 +39,12 @@ onMounted(() => {
                 <div class="details__coords">
                     <div class="details__row">
                         <span class="details__label">lng:</span>
-                        <span class="details__value">{{ selectedUser.coordinates[0] }}</span>
+                        <span class="details__value">{{ selectedUser.coordinates[0].toFixed(6) }}</span>
                     </div>
                     <div class="details__coords-divider"></div>
                     <div class="details__row">
                         <span class="details__label">lat:</span>
-                        <span class="details__value">{{ selectedUser.coordinates[1] }}</span>
+                        <span class="details__value">{{ selectedUser.coordinates[1].toFixed(6) }}</span>
                     </div>
                 </div>
 

@@ -47,37 +47,55 @@ export type IndexContext<T> = {
 
 export class SpatialGridIndex<T> {
 
+  // cellId -> itemId -> item
   private cells: Map<string, Map<string, T>>
+  // itemId -> cellId
+  private itemsCell: Map<string, string>
   private context: IndexContext<T>
 
   constructor(context: IndexContext<T>) {
     this.cells = new Map()
+    this.itemsCell = new Map()
     this.context = context
   }
 
+  reset() {
+    this.cells = new Map()
+    this.itemsCell = new Map()
+  }
+
   hasItem(item: T): boolean {
-    return this.cells.get(this.getItemCellId(item))?.has(this.getItemId(item)) ?? false
+    return this.itemsCell.has(this.getItemId(item))
   }
 
   addItem(item: T): void {
-    const cellId = this.getItemCellId(item)
-
+    const cellId = this.itemCoordsToCellId(item)
+    
     let cell = this.cells.get(cellId)
     if (!cell) {
       cell = new Map()
       this.cells.set(cellId, cell)
     }
-
+    
     cell.set(this.getItemId(item), item)
+
+    const itemId = this.getItemId(item)
+    this.itemsCell.set(itemId, cellId)
   }
 
-  moveItem(item: T, from: LngLat): void {
-    this.cells.get(coordsToCellId(from))?.delete(this.getItemId(item))
+  updateItemIndex(item: T): void {
+    this.deleteItem(item)
     this.addItem(item)
   }
 
-  deleteItem(item: T): boolean {
-    return this.cells.get(this.getItemCellId(item))?.delete(this.getItemId(item)) ?? false
+  deleteItem(item: T): void {
+    const itemId = this.getItemId(item)
+    const cellId = this.getCellId(item)
+
+    if (cellId) {
+      this.cells.get(cellId)?.delete(itemId)
+    }
+    this.itemsCell.delete(itemId)
   }
 
   getItemId(item: T): string {
@@ -88,8 +106,12 @@ export class SpatialGridIndex<T> {
     return this.context.getCoordinates(item)
   }
 
-  getItemCellId(item: T): string {
+  itemCoordsToCellId(item: T): string {
     return coordsToCellId(this.getItemCoordinates(item))
+  }
+
+  getCellId(item: T): string {
+    return this.itemsCell.get(this.getItemId(item)) ?? ''
   }
 
   cellToClosestTo(cellId: string, coordinates: LngLat): ClosestItem<T>[] {

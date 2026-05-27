@@ -25,11 +25,27 @@ export const useMapStore = defineStore('mapStore', () => {
             resetPlaceSelection()
         }
     })
+
     const { findClosestUsers, closestUsers } = useUsersGridIndex()
+
+    /**
+     * Allows to recompute closest users for the currently selected place
+     * if any place is selected
+     */
+    function refreshClosestUsers() {
+        const selected = selectedPlace.value
+        if (!selected) {
+            return
+        }
+        findClosestUsers(selected.place.coordinates)
+    }
+
+    // recompute closest users when selection changes;
+    // clears the list when selection is dropped
     watch(selectedPlace, (place) => {
         if (place) {
             resetUserSelection()
-            findClosestUsers(place.place.coordinates)
+            refreshClosestUsers()
         } else {
             closestUsers.value = []
         }
@@ -38,9 +54,6 @@ export const useMapStore = defineStore('mapStore', () => {
     return {
         activePlaceTypes,
         filterPlaces,
+        refreshClosestUsers,
     }
 })
-function findClosestUsers() {
-    throw new Error('Function not implemented.')
-}
-

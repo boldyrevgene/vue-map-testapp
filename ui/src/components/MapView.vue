@@ -13,7 +13,7 @@ import { storeToRefs } from 'pinia'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
-import { MapService } from '@/services'
+import { MapService, type WsUserUpdateMsg } from '@/services'
 import { useIsMobile } from '@/composables'
 import {
     useAppStore,
@@ -35,18 +35,21 @@ const placesStore = usePlacesStore()
 const usersStore = useUsersStore()
 
 const { isSidePanelExpanded } = storeToRefs(appStore)
-const {
-    activePlaceTypes,
-} = storeToRefs(mapStore)
+const { activePlaceTypes } = storeToRefs(mapStore)
 const {
     places,
     selectedPlace,
 } = storeToRefs(placesStore)
-const { users, selectedUser } = storeToRefs(usersStore)
-const { closestUsers } = useUsersGridIndex()
+const { selectedUser } = storeToRefs(usersStore)
+const { closestUsers, index: usersIndex } = useUsersGridIndex()
 
 const { fetchPlaces, selectPlace, addPlaceEventListener } = placesStore
-const { fetchUsers, selectUser } = usersStore
+const {
+    selectUser,
+    addUserUpdatesListener,
+    listenUserUpdates,
+    stopListenUserUpdates
+} = usersStore
 
 const selectionSnapshot = computed(() => ({
     selectedPlace: selectedPlace.value?.place ?? null,
@@ -85,24 +88,29 @@ onMounted(() => {
     // attribution control collides with side panel if its position is default
     maplibreInst.addControl(new maplibregl.AttributionControl({ compact: false }), 'bottom-left')
 
-    const mapService = new MapService(maplibreInst)
+    const mapService = new MapService(maplibreInst, usersIndex)
     fetchPlaces()
-    fetchUsers()
 
     mapService.onLoad(map => {
 
         scope.run(() => {
 
+            const cancelUsersListener = addUserUpdatesListener((msg) => {
+                if (msg.added.length && !msg.removed.length && !msg.updated.length) {
+                    map.setUsers(toRaw(msg.added))
+                    return
+                }
+
+                map.updateUsers(toRaw(msg))
+                    .then(() => mapStore.refreshClosestUsers())
+                    .catch((err) => console.warn('Updates users on the map are failed: ', err))
+            })
+            listenUserUpdates()
+
             if (places.value.length) {
                 map.setPlaces(toRaw(places.value))
             } else {
                 watch(places, (loadedPlaces) => map.setPlaces(toRaw(loadedPlaces)), { once: true })
-            }
-
-            if (users.value.length) {
-                map.setUsers(toRaw(users.value))
-            } else {
-                watch(users, (loadedUsers) => map.setUsers(toRaw(loadedUsers)), { once: true })
             }
 
             const unsubscribePlaceEvent = addPlaceEventListener(event => {
@@ -118,7 +126,10 @@ onMounted(() => {
                         break
                 }
             })
-            onScopeDispose(unsubscribePlaceEvent)
+            onScopeDispose(() => {
+                cancelUsersListener()
+                unsubscribePlaceEvent()
+            })
 
             // applys places filter
             watch(activePlaceTypes, (types) => map.filterPlaces(types))
@@ -156,6 +167,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     scope.stop()
+    stopListenUserUpdates()
     maplibreInst?.remove()
 })
 

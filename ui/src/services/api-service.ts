@@ -1,5 +1,12 @@
 import { type AppConfig, config } from '@/config'
 import type { Place, User } from '@/models'
+import type { MinRequiredOf } from '@/types'
+
+export interface WsUserUpdateMsg {
+    removed: string[]
+    added: User[]
+    updated: MinRequiredOf<User, 'id' | 'coordinates'>[]
+}
 
 export class ApiService {
 
@@ -71,6 +78,39 @@ export class ApiService {
         return this.handleResponse<User[]>(
             await fetch(`${this.config.apiBase}/users`)
         )
+    }
+
+    subscribeOnUserUpdates(handler: (msg: WsUserUpdateMsg) => void, errorHanвler?: (error: unknown) => void): () => void {
+        let ws: WebSocket
+        try {
+            ws = new WebSocket(this.config.wsUrl)
+        } catch (err) {
+            console.error('Failed to create WebSocket:', err)
+            errorHanвler?.(err)
+            return () => {}
+        }
+
+        ws.onmessage = ({ data }) => {
+            try {
+                handler(JSON.parse(data))
+            } catch (err) {
+                console.error('Failed to parse WS message:', err)
+                errorHanвler?.(err)
+            }
+        }
+
+        ws.onerror = (event) => {
+            console.error('WebSocket error event:', event)
+            errorHanвler?.(event)
+        }
+        ws.onclose = (event) => {
+            if (!event.wasClean) {
+                console.warn(`WebSocket closed unexpectedly. code=${event.code} reason="${event.reason}"`)
+                errorHanвler?.(new ApiError(`WebSocket connection was closed: ${event.reason}`, event.code, event))
+            }
+        }
+
+        return () => ws.close()
     }
 
     /**

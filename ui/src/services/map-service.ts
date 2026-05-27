@@ -1,13 +1,18 @@
-import maplibregl, { GeoJSONSource, type GeoJSONFeatureDiff, type SourceSpecification } from 'maplibre-gl'
+import maplibregl, {
+    GeoJSONSource,
+    type GeoJSONFeatureDiff,
+    type GeoJSONFeatureId,
+    type SourceSpecification
+} from 'maplibre-gl'
 
 import { SIDE_PANEL_TRANSITION_MS } from '@/constants/styles'
 
 import { PLACE_TYPES_LIST, PlaceType, type MapEntity, type Place, type User } from '@/models'
 import { mapIconService } from './map-icon-service'
 
-import { useUsersGridIndex } from '@/composables'
 
-const { index: usersIndex } = useUsersGridIndex()
+import type { SpatialGridIndex } from '@/utils/geo'
+import type { WsUserUpdateMsg } from './api-service'
 
 type MarkerClickCallback = (id: string, type: 'user' | 'place') => void
 
@@ -25,6 +30,7 @@ export interface MapPublicApi {
     filterPlaces(activePlaceTypes: Set<PlaceType>): void
 
     setUsers(users: User[]): void
+    updateUsers(updates: WsUserUpdateMsg): Promise<void>
 
     setSelection(snapshot: SelectionSnapshot): void
 
@@ -57,6 +63,7 @@ export class MapService {
         filterPlaces: this.filterPlaces.bind(this),
 
         setUsers: this.setUsers.bind(this),
+        updateUsers: this.updateUsers.bind(this),
 
         setSelection: this.setSelection.bind(this),
 
@@ -76,7 +83,7 @@ export class MapService {
         closestUsers: []
     }
 
-    constructor(private map: maplibregl.Map) {
+    constructor(private map: maplibregl.Map, private usersIndex: SpatialGridIndex<User>) {
         this.areImagesLoaded = this.addCustomMarkers()
 
         PLACE_TYPES_LIST.forEach(placeType => {
@@ -193,7 +200,7 @@ export class MapService {
         }
 
         source.updateData({
-            add: this.entitiesToFeatures([place])
+            add: [ this.getGeoJSONFeature(place) ]
         })
         if (centerOnNewPlace) {
             this.map.flyTo({
@@ -318,6 +325,12 @@ export class MapService {
         byType.splice(index, 1)
     }
 
+    /**
+     * Resets map users source with given users
+     * 
+     * @param users - full list of users which should be added on the map
+     * @returns 
+     */
     private setUsers(users: User[]): void {
         const sourceId = MapService.USERS_SOURCE_ID
         const source = this.map.getSource<GeoJSONSource>(sourceId)
@@ -328,11 +341,12 @@ export class MapService {
 
         // reset
         this.features.set(sourceId, new Map())
+        this.usersIndex.reset()
 
         // populate
         for (const user of users) {
             this.addToFeatures(sourceId, user)
-            usersIndex.addItem(user)
+            this.usersIndex.addItem(user)
         }
 
         // sync to map
@@ -342,13 +356,79 @@ export class MapService {
         })
     }
 
+    /**
+     * Updates users source of the map
+     * 
+     * @param updates - list of updates includng list of ids for delete,
+     * list of new users and list of changed users
+     * @returns - promise which resolve when user data is updated on the map
+     */
+    private updateUsers(updates: WsUserUpdateMsg): Promise<void> {
+        const sourceId = MapService.USERS_SOURCE_ID
+        const source = this.map.getSource<GeoJSONSource>(sourceId)
+        if (!source) {
+            return Promise.resolve()
+        }
+
+        const remove: GeoJSONFeatureId[] = updates.removed.reduce<GeoJSONFeatureId[]>((removeIds, id) => {
+            const user = this.features.get(sourceId)?.get(id)
+            if (!user) {
+                return removeIds
+            }
+
+            this.usersIndex.deleteItem(user)
+            this.removeFromFeatures(sourceId, user)
+
+            removeIds.push(user.id)
+            return removeIds
+        }, [])
+
+        const add: GeoJSON.Feature[] = updates.added.map((user) => {
+
+            this.features.get(sourceId)?.set(user.id, user)
+            this.usersIndex.addItem(user)
+
+            return this.getGeoJSONFeature(user)
+        })
+
+        const update = updates.updated.reduce<GeoJSONFeatureDiff[]>((updates, user) => {
+            const { id, coordinates } = user
+            const prevUserState = this.features.get(sourceId)?.get(id)
+            if (!prevUserState) {
+                return updates
+            }
+
+            const newUserState = {...prevUserState, ...user}
+
+            this.usersIndex.updateItemIndex(newUserState)
+            this.features.get(sourceId)?.set(id, newUserState)
+
+            updates.push({
+                id,
+                newGeometry: {
+                    type: 'Point',
+                    coordinates
+                }
+            })
+
+            return updates
+        }, [])
+        
+        return source.updateData({ remove, add, update }, true)
+    }
+
     private entitiesToFeatures(entities: MapEntity[]): GeoJSON.Feature[] {
-        return entities.map(({ id, name, coordinates }) => ({
+        return entities.map((entry) => this.getGeoJSONFeature(entry))
+    }
+
+    private getGeoJSONFeature(entry: MapEntity): GeoJSON.Feature {
+        const { id, name, coordinates } = entry
+        return  {
             id,
             type: 'Feature',
             geometry: { type: 'Point', coordinates },
             properties: { id, name },
-        }))
+        }
     }
 
     private getSourceTemplate(): SourceSpecification {
