@@ -1,90 +1,90 @@
 # UI
 
-Vue.js 3 SPA на базі Vite. Composition API, Pinia, MapLibre GL JS, Element Plus.
+Vue.js 3 SPA built with Vite. Composition API, Pinia, MapLibre GL JS, Element Plus.
 
-## Запуск
+## Running
 
 ```bash
 npm install
-npm run dev       # dev-сервер на http://localhost:5173
-npm run build     # продакшн-збірка (включає type-check)
-npm run type-check  # лише перевірка типів без збірки
+npm run dev       # dev server at http://localhost:5173
+npm run build     # production build (includes type-check)
+npm run type-check  # type-check only, no build
 ```
 
-## Змінні середовища
+## Environment Variables
 
-Створи файл `.env.local` у директорії `ui/`:
+Create a `.env.local` file in the `ui/` directory:
 
 ```
 VITE_API_BASE=http://localhost:3000/api
 VITE_WS_URL=ws://localhost:3000
 ```
 
-## Структура `src/`
+## `src/` Structure
 
 ### `components/`
 
-| Файл | Призначення |
-|------|-------------|
-| `AppHeader.vue` | Верхня панель застосунку: фільтри обʼєктів на мапі за типом, кнопка додавання нового об'єкта, кнопка відображення панелі якщо згорнута |
-| `AppLayout.vue` | Кореневий layout: розміщує карту та бічну панель, керує відображенням панелі. |
-| `MapView.vue` | Ініціалізує MapLibre GL JS, підписується на події карти (кліки по маркерах), синхронізує стан сторів із відображенням на карті через `MapService`. |
-| `PlaceDetails.vue` | Картка вибраного об'єкта: показує деталі місця, список трьох найближчих користувачів, кнопки редагування та видалення/компонент форми для свореня або редагування обʼєкту. |
-| `PlaceForm.vue` | Форма створення/редагування об'єкта з валідацією (Element Plus). |
-| `SidePanel.vue` | Базовий shell бічної панелі: кнопки згортання/закриття, адаптивна поведінка (desktop — права панель, mobile — нижній sheet). |
-| `SidePanelContainer.vue` | Вирішує, який контент рендерити в панелі: `PlaceDetails` або `UserDetails` — залежно від обранного маркеру на карті. |
-| `UserDetails.vue` | Картка вибраного користувача: ім'я та координати. |
+| File | Purpose |
+|------|---------|
+| `AppHeader.vue` | App top bar: place filters by type, add-new-place button, button to re-open the panel when collapsed. |
+| `AppLayout.vue` | Root layout: positions the map and side panel, controls panel visibility. |
+| `MapView.vue` | Initializes MapLibre GL JS, subscribes to map events (marker clicks), syncs store state with map rendering via `MapService`. |
+| `PlaceDetails.vue` | Selected place card: shows place details, list of three closest users, edit/delete buttons, and the create/edit form component. |
+| `PlaceForm.vue` | Place create/edit form with validation (Element Plus). |
+| `SidePanel.vue` | Side panel shell: collapse/close buttons, adaptive behavior (desktop — right overlay panel, mobile — bottom sheet). |
+| `SidePanelContainer.vue` | Decides which content to render in the panel: `PlaceDetails` or `UserDetails` — based on the selected map marker. |
+| `UserDetails.vue` | Selected user card: name and coordinates. |
 
 ### `constants/`
 
-| Файл | Призначення |
-|------|-------------|
-| `map.ts` | Початковий центр та зум карти (Київ), кількість найближчих користувачів для відображення (`CLOSEST_USERS_DISPLAY_COUNT = 3`). |
-| `styles.ts` | Брейкпоінт мобільного вигляду (`MOBILE_BREAKPOINT`), ширина desktop-панелі, висота mobile-панелі у `dvh`, тривалість анімації відображення/приховування панелі. |
+| File | Purpose |
+|------|---------|
+| `map.ts` | Initial map center and zoom (Kyiv), number of closest users to display (`CLOSEST_USERS_DISPLAY_COUNT = 3`). |
+| `styles.ts` | Mobile breakpoint (`MOBILE_BREAKPOINT`), desktop panel width, mobile panel height in `dvh`, panel show/hide animation duration. |
 
 ### `services/`
 
-| Файл | Призначення |
-|------|-------------|
-| `api-service.ts` | HTTP-клієнт (`ApiService`): методи `fetchPlaces`, `createPlace`, `updatePlace`, `deletePlace`, `fetchUsers`. Централізована обробка HTTP-помилок через `ApiError`. Синглтон `apiService` створюється з `config`. |
-| `map-icon-service.ts` | Завантажує SVG-іконки маркерів, розфарбовує їх залежно від стану (`default` / `selected` / `closest`), растеризує у `HTMLImageElement` потрібного розміру. Кешує SVG-текст у пам'яті. |
-| `map-service.ts` | Вся логіка роботи з MapLibre GL JS: ініціалізація карти, джерела та шари GeoJSON для об'єктів і користувачів, оновлення маркерів, фільтрація, відображення вибору, зсув центру карти. Повертає `MapPublicApi` для використання у компонентах. |
+| File | Purpose |
+|------|---------|
+| `api-service.ts` | HTTP client (`ApiService`): `fetchPlaces`, `createPlace`, `updatePlace`, `deletePlace`, `fetchUsers` methods. Centralized HTTP error handling via `ApiError`. Singleton `apiService` instantiated from `config`. |
+| `map-icon-service.ts` | Loads SVG marker icons, colorizes them by state (`default` / `selected` / `closest`), rasterizes to `HTMLImageElement` at the required size. Caches SVG text in memory. |
+| `map-service.ts` | All MapLibre GL JS logic: map initialization, GeoJSON sources and layers for places and users, marker updates, filtering, selection display, map center offset. Returns `MapPublicApi` for use in components. |
 
 ### `stores/`
 
-| Файл | Призначення |
-|------|-------------|
-| `places-store.ts` | Стан об'єктів: список, індекс за `id`, `isLoading`, `error`. CRUD-операції з викликом `apiService` та синхронним оновленням локального масиву (без повторного fetch). Управління вибором місця та станом чернетки (draft) при створенні. |
-| `users-store.ts` | Стан користувачів: список, індекс за `id`, `isLoading`, `error`. Завантаження через `apiService.fetchUsers()`. Управління вибором користувача. |
-| `map-store.ts` | Похідний стор: обчислює список `closestUsers` (Haversine) відносно вибраного місця, зберігає активні типи фільтрів, забезпечує взаємовиключність вибору місця і користувача. |
-| `app-store.ts` | UI-стор: керує станом бічної панелі (expanded / collapsed / closed), слідкує за помилками та показує `ElNotification`, автоматично розгортає панель при появі нового вибору. |
+| File | Purpose |
+|------|---------|
+| `places-store.ts` | Place state: list, index by `id`, `isLoading`, `error`. CRUD operations calling `apiService` with synchronous local array updates (no re-fetch). Manages place selection and draft state during creation. |
+| `users-store.ts` | User state: list, index by `id`, `isLoading`, `error`. Loaded via `apiService.fetchUsers()`. Manages user selection. |
+| `map-store.ts` | Derived store: computes `closestUsers` list (Haversine) relative to the selected place, stores active filter types, enforces mutual exclusivity of place and user selection. |
+| `app-store.ts` | UI store: manages side panel state (expanded / collapsed / closed), tracks errors and shows `ElNotification`, auto-expands the panel when a new selection appears. |
 
 ### `utils/`
 
-| Файл | Призначення |
-|------|-------------|
-| `geo.ts` | Гео-утиліти: `haversineDistance(a, b)` для обчислення відстані у кілометрах та `SpatialGridIndex` / `defineSpatialGridIndex` — просторовий індекс для пошуку N найближчих об'єктів. Детальніше — у розділі нижче. |
+| File | Purpose |
+|------|---------|
+| `geo.ts` | Geo utilities: `haversineDistance(a, b)` for distance in kilometers, and `SpatialGridIndex` / `defineSpatialGridIndex` — a spatial index for finding N closest items. Details in the section below. |
 
-## Пошук N найближчих об'єктів (`utils/geo.ts`)
+## Finding N Closest Items (`utils/geo.ts`)
 
-Завдання вимагає для вибраного місця показати 3 найближчих користувачі. Моє початкове рішення було — пройти по всьому списку юзерів, порахувати `haversineDistance` до кожного, відсортувати, взяти перші три — це O(n) на кожен клік. `SpatialGridIndex` потенційно значно покращить продуктивність при значних кількостях рухомих точок на мапі з частими оновленнями
+The task requires showing the 3 closest users to a selected place. My initial approach was to iterate the full user list, compute `haversineDistance` to each, sort, and take the top three — O(n) per click. `SpatialGridIndex` can significantly improve performance when there are large numbers of frequently-updating moving points on the map.
 
-**Spatial grid index** — двовимірний хеш над клітинками сітки, в які групуються об'єкти за координатами. Пошук йде "кільцями" від клітинки запиту назовні, доки не набереться потрібна кількість кандидатів.
+**Spatial grid index** — a 2D hash over grid cells into which items are bucketed by coordinates. Search expands outward in "rings" from the query cell until enough candidates are collected.
 
-### Як працює
+### How it works
 
-Індекс — це `Map<cellId, Map<itemId, item>>`. `cellId` обчислюється з координат точки множенням на `GRID_RESOLUTION` і взяттям цілої частини: `"3051_5044"`. Тобто кожен об'єкт лежить рівно в одній клітинці.
+The index is a `Map<cellId, Map<itemId, item>>`. `cellId` is derived from a point's coordinates by multiplying by `GRID_RESOLUTION` and flooring: `"3051_5044"`. Each item belongs to exactly one cell.
 
-Пошук `findClosestTo(query)` стартує з клітинки, в якій лежить query, і розширюється квадратними кільцями: радіус 0 — лише центральна клітинка, радіус 1 — пeriметр з 8 сусідніх, радіус 2 — наступний шар з 16 клітинок, і т.д. Як тільки набирається `limit` кандидатів — алгоритм робить ще одне додаткове кільце (бо квадратний пeriметр може містити точку ближчу за вже знайдені у центральній клітинці), сортує усе зібране за `haversineDistance`, обрізає до `limit`.
+`findClosestTo(query)` starts at the cell containing the query point and expands in square rings: radius 0 — center cell only, radius 1 — perimeter of 8 neighbors, radius 2 — next layer of 16 cells, and so on. Once `limit` candidates are found, the algorithm does one extra ring (because a square perimeter can contain a point closer than those in the center cell), sorts everything by `haversineDistance`, and trims to `limit`.
 
-Складність у середньому близька до O(k), де k — кількість об'єктів у переглянутих клітинках, а не O(n) по всьому датасету.
+Average complexity is close to O(k), where k is the number of items in the visited cells, not O(n) over the full dataset.
 
-### Налаштування — `GRID_RESOLUTION`
+### Tuning — `GRID_RESOLUTION`
 
-Це **параметр коректності й продуктивності**. У `constants/map.ts` він винесений у пресет `GRID_INDEX_CONFIG` з кількома готовими опціями (від ~100м до ~10км на сторону клітинки для широт України). Поточне значення — `CELL_1KM` (~1.1км x 740м).
+This is a **correctness and performance parameter**. In `constants/map.ts` it is exposed as the `GRID_INDEX_CONFIG` preset with several ready-made options (from ~100 m to ~10 km per cell side for Ukrainian latitudes). Current value — `CELL_1KM` (~1.1 km × 740 m).
 
-Форма кліток залешить від широти, тож точність і ефективність алгоритму також може значною мірою залежати від території на якій ведеться пошук 
+Cell shape depends on latitude, so algorithm accuracy and efficiency can also vary significantly depending on the geographic area being searched.
 
-### Чому власна реалізація, а не бібліотека
+### Why a custom implementation instead of a library
 
-Існують готові реалізації просторового індексу — наприклад, [RBush](https://github.com/mourner/rbush) (R-tree), [KDBush](https://github.com/mourner/kdbush) (k-d tree), [Supercluster](https://github.com/mourner/supercluster). Усі вони продуктивніші на великих обсягах і покривають більше edge-кейсів але реалізував власний алгоритм із цікавості + не був впевненний на скільки використання додаткових бібліотек буде валідне саме для тестового завдання.
+There are ready-made spatial index implementations — for example [RBush](https://github.com/mourner/rbush) (R-tree), [KDBush](https://github.com/mourner/kdbush) (k-d tree), [Supercluster](https://github.com/mourner/supercluster). All of them outperform this on large datasets and cover more edge cases, but I implemented my own out of curiosity and uncertainty about whether using extra libraries would be appropriate for a take-home assignment.

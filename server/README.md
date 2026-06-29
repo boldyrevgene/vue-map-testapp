@@ -1,28 +1,28 @@
-# Сервер
+# Server
 
-Node.js + Express REST API сервер. Дані зберігаються локально у JSON-файлах (`data/places.json`, `data/users.json`).
+Node.js + Express REST API server. Data is stored locally in JSON files (`data/places.json`, `data/users.json`).
 
-## Запуск
+## Running
 
 ```bash
 npm install
 npm run dev
 ```
 
-Сервер стартує на `http://localhost:3000`. Команда `dev` запускає Node.js з прапором `--watch`, тобто сервер автоматично перезапускається при зміні файлів.
+Server starts at `http://localhost:3000`. The `dev` command runs Node.js with the `--watch` flag, so the server automatically restarts on file changes.
 
 ## REST API
 
 ### Places — `/api/places`
 
-| Метод    | Шлях               | Опис                                                                                 |
+| Method   | Path               | Description                                                                          |
 |----------|--------------------|--------------------------------------------------------------------------------------|
-| `GET`    | `/api/places`      | Повертає список усіх об'єктів із `data/places.json`.                                 |
-| `POST`   | `/api/places`      | Створює новий об'єкт. Обов'язкові поля: `name`, `type`, `coordinates`. Генерує `id` через `randomUUID()`, зберігає у файл, повертає створений об'єкт зі статусом `201`. |
-| `PUT`    | `/api/places/:id`  | Повністю оновлює об'єкт за `id`. Обов'язкові поля: `name`, `type`, `coordinates`. Повертає оновлений об'єкт або `404`, якщо не знайдено. |
-| `DELETE` | `/api/places/:id`  | Видаляє об'єкт за `id`. Повертає `{ id, status: 'Ok' }` або `404`, якщо не знайдено. |
+| `GET`    | `/api/places`      | Returns all places from `data/places.json`. |
+| `POST`   | `/api/places`      | Creates a new place. Required fields: `name`, `type`, `coordinates`. Generates `id` via `randomUUID()`, persists to file, returns the created place with status `201`. |
+| `PUT`    | `/api/places/:id`  | Fully updates a place by `id`. Required fields: `name`, `type`, `coordinates`. Returns the updated place or `404` if not found. |
+| `DELETE` | `/api/places/:id`  | Deletes a place by `id`. Returns `{ id, status: 'Ok' }` or `404` if not found. |
 
-Структура об'єкта `Place`:
+`Place` object shape:
 
 ```json
 {
@@ -36,11 +36,11 @@ npm run dev
 
 ### Users — `/api/users`
 
-| Метод | Шлях          | Опис                                                        |
-|-------|---------------|-------------------------------------------------------------|
-| `GET` | `/api/users`  | Повертає список усіх користувачів із `data/users.json`.     |
+| Method | Path          | Description                              |
+|--------|---------------|------------------------------------------|
+| `GET`  | `/api/users`  | Returns all users from `data/users.json`. |
 
-Структура об'єкта `User`:
+`User` object shape:
 
 ```json
 {
@@ -52,9 +52,9 @@ npm run dev
 
 ## WebSocket
 
-Кожні **500 мс** на підключених клієнтів розсилається повідомлення з оновленнями симуляції руху юзерів. При новому підключенні клієнт першим повідомленням отримує snapshot поточного стану.
+Every **500 ms** a message with user movement simulation updates is broadcast to all connected clients. On new connection the client receives a snapshot of the current state as the first message.
 
-### Формат повідомлення
+### Message Format
 
 ```json
 {
@@ -64,26 +64,26 @@ npm run dev
 }
 ```
 
-Контракт єдиний для snapshot і для tick'ів:
+The same contract is used for both snapshots and ticks:
 
-- `removed` — id юзерів, яких більше не існує (на снепшоті завжди порожній).
-- `added` — повні об'єкти нових юзерів. На першому повідомленні після підключення містить **усіх** наявних юзерів (snapshot).
-- `updated` — id + нові координати для тих, хто змінив позицію.
+- `removed` — ids of users that no longer exist (always empty in the snapshot).
+- `added` — full user objects. On the first message after connecting, contains **all** current users (snapshot).
+- `updated` — id + new coordinates for users that changed position.
 
-На підключення snapshot приходить як `added` - немає потреби окремого завантаження через REST апі.
+The snapshot on connect arrives as `added` — no separate REST API fetch is needed.
 
-### Логіка симуляції (`simulation.js`)
+### Simulation Logic (`simulation.js`)
 
-Кожен юзер у внутрішньому стані сервера має поля `{ id, name, lat, lng, speed, angle }`, де `speed` і `angle` — приховані від клієнта.
+Each user in the server's internal state has fields `{ id, name, lat, lng, speed, angle }`, where `speed` and `angle` are hidden from the client.
 
-**Рух** реалізовано через wander-алгоритм:
+**Movement** is implemented via the wander algorithm:
 
-1. На кожному тіку angle отримує невеликий випадковий поворот у межах ±30° (`MAX_TURN`).
-2. Координати оновлюються як `lat += speed * cos(angle)`, `lng += speed * sin(angle)`.
-3. Якщо юзер наближається до межі bbox Києва (на відстані менше ~1 км — `BBOX_MARGIN`), його angle плавно тягнеться до центру Києва з коефіцієнтом 0.15 (`BIAS_STRENGTH`). Без різких розворотів — м'яке "відштовхування".
+1. Each tick, angle receives a small random turn within ±30° (`MAX_TURN`).
+2. Coordinates update as `lat += speed * cos(angle)`, `lng += speed * sin(angle)`.
+3. If a user approaches the Kyiv bbox boundary (within ~1 km — `BBOX_MARGIN`), their angle is gently pulled toward Kyiv's center with coefficient 0.15 (`BIAS_STRENGTH`). No sharp U-turns — a soft "repulsion".
 
-**Швидкість** генерується випадково для кожного юзера в момент створення з діапазону `MIN_SPEED..MAX_SPEED` (у градусах за тік). На широті Києва це дає приблизно **2.5–200 км/год** залежно від напрямку руху (lat і lng мають різний масштаб у кілометрах).
+**Speed** is generated randomly per user at creation time from the `MIN_SPEED..MAX_SPEED` range (in degrees per tick). At Kyiv's latitude this yields approximately **2.5–200 km/h** depending on direction (lat and lng have different km-per-degree scales).
 
-**Кількість юзерів** не фіксована — кожні 10 тіків (`ADD_REMOVE_N_TICKS`) сервер додає 1–10 нових і видаляє стільки ж, з певним зміщенням до `initialCount` (стартової кількості з `users.json`). Якщо популяція вища за норму, видалень більше, ніж додавань; якщо менша — навпаки.
+**User count** is not fixed — every 10 ticks (`ADD_REMOVE_N_TICKS`) the server adds 1–10 new users and removes the same number, biased toward `initialCount` (the starting count from `users.json`). If population is above the target, more are removed than added; if below, the opposite.
 
-**Bbox Києва:** lat 50.36–50.56, lng 30.34–30.70 — покриває всі 10 районів. І спавн нових, і утримання існуючих юзерів — у цих межах.
+**Kyiv bbox:** lat 50.36–50.56, lng 30.34–30.70 — covers all 10 districts. Both spawning new users and keeping existing ones are constrained to these bounds.
